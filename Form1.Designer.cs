@@ -63,6 +63,7 @@
             this.btnStart.TabIndex = 2;
             this.btnStart.Text = "Iniciar Envíos";
             this.btnStart.UseVisualStyleBackColor = true;
+            this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
             // btnStop
             // 
@@ -75,11 +76,11 @@
             // 
             // txtLog
             // 
-            this.txtLog.Location = new System.Drawing.Point(321, 169);
+            this.txtLog.Location = new System.Drawing.Point(175, 130);
             this.txtLog.Multiline = true;
             this.txtLog.Name = "txtLog";
             this.txtLog.ReadOnly = true;
-            this.txtLog.Size = new System.Drawing.Size(100, 20);
+            this.txtLog.Size = new System.Drawing.Size(415, 201);
             this.txtLog.TabIndex = 4;
             // 
             // progressBar1

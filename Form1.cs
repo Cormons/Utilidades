@@ -12,6 +12,9 @@ namespace GoriziaUtilidades
         {
             InitializeComponent();
             btnStop.Enabled = false;
+            progressBar1.Minimum = 0;
+            progressBar1.Maximum = 100;
+            progressBar1.Value = 0;
         }
 
         private async void btnStart_Click(object sender, EventArgs e)
@@ -19,19 +22,28 @@ namespace GoriziaUtilidades
             btnStart.Enabled = false;
             btnStop.Enabled = true;
             txtLog.Clear();
+            progressBar1.Value = 0; // reinicio al empezar
 
             cts = new CancellationTokenSource();
             var automation = new WhatsAppAutomation();
-            var progress = new Progress<string>(s => Log(s));
+
+            // Progress para el log
+            var progressText = new Progress<string>(s => Log(s));
+
+            // Progress para la barra
+            var progressBar = new Progress<int>(value =>
+            {
+                progressBar1.Value = Math.Min(progressBar1.Maximum, value);
+            });
 
             try
             {
                 string basePath = txtBasePath.Text.Trim();
-                string mensaje = string.IsNullOrWhiteSpace(txtMensaje.Text) ?
-                                 "Hola, te envío tu comprobante adjunto. Saludos!" :
-                                 txtMensaje.Text;
+                string mensaje = string.IsNullOrWhiteSpace(txtMensaje.Text)
+                                 ? "Hola, te envío tu comprobante adjunto. Saludos!"
+                                 : txtMensaje.Text;
 
-                await automation.RunAsync(basePath, mensaje, progress, cts.Token);
+                await automation.RunAsync(basePath, mensaje, progressText, progressBar, cts.Token);
                 Log("✅ Proceso finalizado.");
             }
             catch (Exception ex)
@@ -62,16 +74,13 @@ namespace GoriziaUtilidades
 
         private void btnSelectFile_Click(object sender, EventArgs e)
         {
-            // Configurar el cuadro de diálogo
-            openFileDialog1.Title = "Seleccione un archivo de Excel";
-            openFileDialog1.Filter = "Archivos de Excel|*.xlsx;*.xls|Todos los archivos|*.*";
+            openFileDialog1.Title = "Seleccione el archivo de clientes";
+            openFileDialog1.Filter = "CSV|*.csv|Todos los archivos|*.*";
 
-            // Mostrar el cuadro de diálogo y verificar el resultado
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
-                // Mostrar la ruta en tu TextBox (o usarla directamente)
-                txtBasePath.Text = openFileDialog1.FileName;
+                txtBasePath.Text = openFileDialog1.FileName; // ruta completa del CSV
             }
         }
     }
-}   
+}
