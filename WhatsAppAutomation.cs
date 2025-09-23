@@ -15,19 +15,17 @@ namespace GoriziaUtilidades
 {
     public class WhatsAppAutomation
     {
-        // Ejecuta todo: csvFile = archivo CSV completo
-        public async Task RunAsync(string csvFile, string mensajeDefault, IProgress<string> progress, IProgress<int> progressBar, CancellationToken ct)
+        public async Task RunAsync(string csvFile, string mensajeDefault, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct)
         {
             if (!File.Exists(csvFile))
                 throw new FileNotFoundException("No se encontró el archivo CSV", csvFile);
 
-            string folder = Path.GetDirectoryName(csvFile); // Carpeta donde están los PDFs
-
-            // Lee todas las líneas (codificación cp1252)
+            string folder = Path.GetDirectoryName(csvFile); // Carpeta donde están los PDFs 
+            // Lee todas las líneas (codificación cp1252) y omite líneas vacías o en blanco 
             var lines = File.ReadAllLines(csvFile, Encoding.GetEncoding(1252))
                             .Where(l => !string.IsNullOrWhiteSpace(l))
-                            .ToList();
-            progress.Report($"📑 Se leyeron {lines.Count} filas del CSV");
+                            .ToList(); // Convertir a lista para contar y recorrer
+            progreso.Report($"📑 Se leyeron {lines.Count} filas del CSV");
 
             var service = ChromeDriverService.CreateDefaultService();
             service.HideCommandPromptWindow = true;
@@ -45,10 +43,10 @@ namespace GoriziaUtilidades
             {
                 driver.Manage().Window.Maximize();
 
-                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(120));
 
                 driver.Navigate().GoToUrl("https://web.whatsapp.com");
-                progress.Report("🔑 Abriendo WhatsApp Web. Si es la primera vez escanea el QR.");
+                progreso.Report("🔑 Abriendo WhatsApp Web. Si es la primera vez escanea el QR.");
                 wait.Until(d => d.FindElements(By.XPath("//div[@aria-label='Nuevo chat']")).Count > 0);
 
                 int total = lines.Count;
@@ -56,7 +54,7 @@ namespace GoriziaUtilidades
 
                 foreach (var line in lines)
                 {
-                    if (ct.IsCancellationRequested) { progress.Report("⏹️ Cancelado por el usuario."); break; }
+                    if (ct.IsCancellationRequested) { progreso.Report("⏹️ Cancelado por el usuario."); break; }
 
                     var cols = ParseCsvLine(line);
                     if (cols.Length <= 4) continue;
@@ -67,12 +65,17 @@ namespace GoriziaUtilidades
                     if (string.IsNullOrWhiteSpace(mensajeCliente))
                         mensajeCliente = mensajeDefault;
 
+                    // Obtenemos el link de pago
+                    string linkPago = cols.Length > 5 ? cols[5].Trim() : "";
+                    if (!string.IsNullOrWhiteSpace(linkPago))
+                        mensajeCliente += "\n💳 Pagar rápido: " + linkPago;
+
                     if (string.IsNullOrWhiteSpace(telefono) || string.IsNullOrWhiteSpace(archivo)) continue;
 
                     string archivoPath = Path.Combine(folder, archivo);
                     if (!File.Exists(archivoPath))
                     {
-                        progress.Report($"❌ Archivo no encontrado: {archivoPath}");
+                        progreso.Report($"❌ Archivo no encontrado: {archivoPath}");
                         continue;
                     }
 
@@ -83,6 +86,7 @@ namespace GoriziaUtilidades
                     try
                     {
                         // Abrir chat sin recargar toda la página
+                        // Buscamos el cuadro de búsqueda de contactos y escribimos el teléfono allí
                         var searchBox = wait.Until(d => d.FindElement(By.XPath("//div[@contenteditable='true' and @data-tab='3']")));
                         searchBox.Click();
                         searchBox.Clear();
@@ -115,22 +119,22 @@ namespace GoriziaUtilidades
                         {
                             new WebDriverWait(driver, TimeSpan.FromSeconds(90))
                                 .Until(d => d.FindElements(By.CssSelector("span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
-                            progress.Report($"✅ Confirmado envío a {telefono}: {archivo}");
+                            progreso.Report($"✅ Confirmado envío a {telefono}: {archivo}");
                         }
                         catch (WebDriverTimeoutException)
                         {
-                            progress.Report($"⚠️ El envío a {telefono} no se confirmó (pendiente).");
+                            progreso.Report($"⚠️ El envío a {telefono} no se confirmó (pendiente).");
                         }
 
                         await Task.Delay(5000); // espera prudente entre clientes
                     }
                     catch (WebDriverTimeoutException tex)
                     {
-                        progress.Report($"⚠️ Timeout al enviar a {telefono}: {tex.Message}");
+                        progreso.Report($"⚠️ Timeout al enviar a {telefono}: {tex.Message}");
                     }
                     catch (Exception ex)
                     {
-                        progress.Report($"❗ Error enviando a {telefono}: {ex.Message}");
+                        progreso.Report($"❗ Error enviando a {telefono}: {ex.Message}");
                     }
 
                     progressBar?.Report(percent);
