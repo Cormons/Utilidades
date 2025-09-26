@@ -11,11 +11,11 @@ namespace GoriziaUtilidades
         [STAThread] // Necesario para que funcionen bien ventanas y controles de Windows
         static void Main(string[] args)
         {
-            if (args.Length >= 2)
+            if (args.Length >= 1)
             {
                 // 📌 Modo AUTOMÁTICO (se pasó CSV y mensaje como parámetros)
                 string csvFile = args[0];
-                string mensajeDefault = args[1];
+                string mensajeDefault = args.Length >= 2 ? args[1] : "Hola";
 
                 var automation = new WhatsAppAutomation();
 
