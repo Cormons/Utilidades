@@ -18,7 +18,7 @@ namespace GoriziaUtilidades
 {
     public class WhatsAppAutomation
     {
-        public async Task RunAsync(string csvFile, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct, string navegador = "chrome")
+        public async Task RunAsync(string csvFile, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct, string navegador = "c")
         {
             if (!File.Exists(csvFile))
                 throw new FileNotFoundException("No se encontró el archivo CSV", csvFile);
@@ -71,7 +71,7 @@ namespace GoriziaUtilidades
 
             switch (navegador.ToLower())
             {
-                case "chrome":
+                case "c":
                     new DriverManager().SetUpDriver(new ChromeConfig());
                     var chromeOptions = new ChromeOptions();
                     string chromeProfile = Path.Combine(
@@ -85,11 +85,15 @@ namespace GoriziaUtilidades
                     chromeOptions.AddArgument("--log-level=3");
                     chromeOptions.AddArgument("--silent");
 
+                    var chromeService = ChromeDriverService.CreateDefaultService();
+                    chromeService.HideCommandPromptWindow = true;
+                    chromeService.SuppressInitialDiagnosticInformation = true;
+
                     progreso.Report("🚀 Iniciando navegador Chrome...");
-                    driver = new ChromeDriver(chromeOptions);
+                    driver = new ChromeDriver(chromeService, chromeOptions);
                     break;
 
-                case "firefox":
+                case "f":
                     new DriverManager().SetUpDriver(new FirefoxConfig());
                     var ffOptions = new FirefoxOptions();   
 
@@ -113,7 +117,7 @@ namespace GoriziaUtilidades
                     driver = new FirefoxDriver(ffService, ffOptions);
                     break;
 
-                case "edge":
+                case "e":
                     new DriverManager().SetUpDriver(new EdgeConfig());
                     var edgeOptions = new EdgeOptions();
                     string edgeProfile = Path.Combine(
@@ -155,7 +159,7 @@ namespace GoriziaUtilidades
                 return;
             }
 
-            if (navegador != "firefox")
+            if (navegador != "f")
             {
                 try
                 {

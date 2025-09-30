@@ -15,7 +15,7 @@ namespace GoriziaUtilidades
             {
                 // 📌 Modo AUTOMÁTICO (se pasó CSV y mensaje como parámetros)
                 string csvFile = args[0];
-                string navegador = args.Length >= 2 ? args[1].Trim().ToLower() : "chrome";
+                string navegador = args.Length >= 2 ? args[1].Trim().ToLower() : "c";
                 // string mensajeDefault = args.Length >= 2 ? args[1] : "Hola";
 
                 var automation = new WhatsAppAutomation();
