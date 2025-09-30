@@ -43,7 +43,7 @@ namespace GoriziaUtilidades
                                  ? "Hola, te envío tu comprobante adjunto. Saludos!"
                                  : txtMensaje.Text;
 
-                await automation.RunAsync(basePath, mensaje, progressText, progressBar, cts.Token);
+                await automation.RunAsync(basePath, progressText, progressBar, cts.Token);
                 Log("✅ Proceso finalizado.");
             }
             catch (Exception ex)

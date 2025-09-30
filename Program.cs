@@ -15,7 +15,8 @@ namespace GoriziaUtilidades
             {
                 // 📌 Modo AUTOMÁTICO (se pasó CSV y mensaje como parámetros)
                 string csvFile = args[0];
-                string mensajeDefault = args.Length >= 2 ? args[1] : "Hola";
+                string navegador = args.Length >= 2 ? args[1].Trim().ToLower() : "chrome";
+                // string mensajeDefault = args.Length >= 2 ? args[1] : "Hola";
 
                 var automation = new WhatsAppAutomation();
 
@@ -25,8 +26,9 @@ namespace GoriziaUtilidades
                 var progresoBarra = new Progress<int>(p => { });
 
                 // Ejecutar de manera síncrona el proceso
+                Console.WriteLine($"[DEBUG] Navegador solicitado: {navegador}");
                 Task.Run(() =>
-                    automation.RunAsync(csvFile, mensajeDefault, progreso, progresoBarra, CancellationToken.None)
+                    automation.RunAsync(csvFile, progreso, progresoBarra, CancellationToken.None, navegador)
                 ).GetAwaiter().GetResult();
             }
             else

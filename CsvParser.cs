@@ -8,7 +8,7 @@ namespace GoriziaUtilidades
 {
     public class CsvParser
     {
-        public static List<ContactoInfo> ParseFile(string path, string mensajeDefault)
+        public static List<ContactoInfo> ParseFile(string path)
         {
             var result = new List<ContactoInfo>();
             var lines = File.ReadAllLines(path, Encoding.GetEncoding(1252))
@@ -24,7 +24,7 @@ namespace GoriziaUtilidades
                     Nombre = cols[0].Trim(),
                     Telefono = cols[1].Trim(),
                     Importe = cols[2].Trim(),
-                    Mensaje = string.IsNullOrWhiteSpace(cols[3]) ? mensajeDefault : cols[3].Trim(),
+                    Mensaje = cols[3].Trim(),
                     Archivo = cols[4].Trim(),
                     LinkPago = cols.Length > 5 ? cols[5].Trim() : ""
                 };

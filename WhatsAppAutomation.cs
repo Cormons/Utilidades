@@ -1,4 +1,7 @@
 ﻿using OpenQA.Selenium;
+using OpenQA.Selenium.Edge;
+using OpenQA.Selenium.Firefox;
+using OpenQA.Selenium.IE;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Interactions;
 using OpenQA.Selenium.Support.UI;
@@ -15,13 +18,13 @@ namespace GoriziaUtilidades
 {
     public class WhatsAppAutomation
     {
-        public async Task RunAsync(string csvFile, string mensajeDefault, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct)
+        public async Task RunAsync(string csvFile, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct, string navegador = "chrome")
         {
             if (!File.Exists(csvFile))
                 throw new FileNotFoundException("No se encontró el archivo CSV", csvFile);
 
             string folder = Path.GetDirectoryName(csvFile);
-            var clientes = CsvParser.ParseFile(csvFile, mensajeDefault);
+            var clientes = CsvParser.ParseFile(csvFile);
 
             if (clientes.Count == 0)
             {
@@ -29,7 +32,7 @@ namespace GoriziaUtilidades
                 return;
             }
 
-            using (var driver = InicializarDriver(progreso))
+            using (var driver = InicializarDriver(progreso, navegador))
             {
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(120));
 
@@ -50,7 +53,7 @@ namespace GoriziaUtilidades
                         break;
                     }
                     
-                    await EnviarMensajeAsync(driver, wait, cliente, folder, progreso);
+                    await EnviarMensajeAsync(driver, wait, cliente, folder, progreso, navegador);
 
                     processed++;
                     int percent = (int)((processed / (double)total) * 100);
@@ -61,29 +64,76 @@ namespace GoriziaUtilidades
             }
         }
 
-        private IWebDriver InicializarDriver(IProgress<string> progreso)     
+        private IWebDriver InicializarDriver(IProgress<string> progreso, string navegador)
         {
-            new DriverManager().SetUpDriver(new ChromeConfig()); 
+            Console.WriteLine($"[DEBUG] Entrando a InicializarDriver con: {navegador}");
+            IWebDriver driver = null;
 
-            var options = new ChromeOptions(); // Configuraciones de Chrome 
-            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string chromeProfile = Path.Combine(userProfile, @"Google\\Chrome\\User Data\\WhatsAppSession");
+            switch (navegador.ToLower())
+            {
+                case "chrome":
+                    new DriverManager().SetUpDriver(new ChromeConfig());
+                    var chromeOptions = new ChromeOptions();
+                    string chromeProfile = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        @"Google\Chrome\User Data\WhatsAppSession");
 
-            options.AddArgument("--user-data-dir=" + chromeProfile);
-            options.AddArgument("--disable-dev-shm-usage");
-            options.AddArgument("--no-sandbox");
-            options.AddArgument("--disable-gpu");
-            options.AddArgument("--log-level=3");
-            options.AddArgument("--silent");
+                    chromeOptions.AddArgument("--user-data-dir=" + chromeProfile);
+                    chromeOptions.AddArgument("--disable-dev-shm-usage");
+                    chromeOptions.AddArgument("--no-sandbox");
+                    chromeOptions.AddArgument("--disable-gpu");
+                    chromeOptions.AddArgument("--log-level=3");
+                    chromeOptions.AddArgument("--silent");
 
-            progreso.Report("🚀 Iniciando navegador Chrome...");
+                    progreso.Report("🚀 Iniciando navegador Chrome...");
+                    driver = new ChromeDriver(chromeOptions);
+                    break;
 
-            var service = ChromeDriverService.CreateDefaultService(); // Crea el servicio de ChromeDriver 
-            service.HideCommandPromptWindow = true;              // Oculta la consola negra
-            service.SuppressInitialDiagnosticInformation = true; // Suprime logs iniciales
-            service.LogPath = "chromedriver.log";                // Redirige logs si hiciera falta
+                case "firefox":
+                    new DriverManager().SetUpDriver(new FirefoxConfig());
+                    var ffOptions = new FirefoxOptions();   
 
-            var driver = new ChromeDriver(service, options);
+                    // Perfil de usuario persistente para guardar la sesión
+                    string ffProfilePath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        @"Mozilla\Firefox\WhatsAppSession");
+
+                    if (!Directory.Exists(ffProfilePath))
+                    {
+                        Directory.CreateDirectory(ffProfilePath);
+                    }
+
+                    ffOptions.Profile = new FirefoxProfile(ffProfilePath);
+
+                    var ffService = FirefoxDriverService.CreateDefaultService();
+                    ffService.HideCommandPromptWindow = true;
+                    ffService.SuppressInitialDiagnosticInformation = true;
+
+                    progreso.Report("🚀 Iniciando navegador Firefox...");
+                    driver = new FirefoxDriver(ffService, ffOptions);
+                    break;
+
+                case "edge":
+                    new DriverManager().SetUpDriver(new EdgeConfig());
+                    var edgeOptions = new EdgeOptions();
+                    string edgeProfile = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        @"Microsoft\Edge\User Data\WhatsAppSession");
+                    edgeOptions.AddArgument("--user-data-dir=" + edgeProfile);
+                    edgeOptions.AddArgument("--disable-dev-shm-usage");
+
+                    var edgeService = EdgeDriverService.CreateDefaultService();
+                    edgeService.HideCommandPromptWindow = true;
+                    edgeService.SuppressInitialDiagnosticInformation = true;
+
+                    progreso.Report("🚀 Iniciando navegador Edge...");
+                    driver = new EdgeDriver(edgeService, edgeOptions);
+                    break;
+
+                default:
+                    throw new ArgumentException($"Navegador no soportado: {navegador}");
+            }
+
             driver.Manage().Window.Maximize();
             driver.Navigate().GoToUrl("https://web.whatsapp.com");
 
@@ -95,7 +145,8 @@ namespace GoriziaUtilidades
             WebDriverWait wait,
             ContactoInfo cliente,
             string folder,
-            IProgress<string> progreso)
+            IProgress<string> progreso,
+            string navegador)
         {
             string archivoPath = Path.Combine(folder, cliente.Archivo);
             if (!File.Exists(archivoPath))
@@ -104,67 +155,123 @@ namespace GoriziaUtilidades
                 return;
             }
 
-            try
+            if (navegador != "firefox")
             {
-                // 🔎 Buscar contacto
-                //MessageBox.Show("Paso 1: Buscar contacto", "Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                progreso.Report("Paso 1: Buscar contacto");
+                try
+                {
+                    // 🔎 Buscar contacto
+                    progreso.Report("Paso 1: Buscar contacto");
 
-                var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
-                searchBox.Click();
-                searchBox.Clear();
-                searchBox.SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter);
+                    var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
+                    searchBox.Click();
+                    searchBox.Clear();
+                    searchBox.SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter);
 
-                // 🟢 Esperar apertura de chat
-                //MessageBox.Show("Paso 2: Esperando apertura de chat", "Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                progreso.Report("Paso 2: Esperando apertura de chat");
+                    // 🟢 Esperar apertura de chat
+                    progreso.Report("Paso 2: Esperando apertura de chat");
 
-                wait.Until(ExpectedConditions.ElementIsVisible(
-                    By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+                    wait.Until(ExpectedConditions.ElementIsVisible(
+                        By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
 
-                await Task.Delay(2000);
+                    //await Task.Delay(1000);
 
-                // 💬 Escribir mensaje
-                //MessageBox.Show("Paso 3: Escribiendo mensaje", "Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                progreso.Report("Paso 3: Escribiendo mensaje");
+                    // 💬 Escribir mensaje
+                    progreso.Report("Paso 3: Escribiendo mensaje");
 
-                var inputText = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
-                inputText.Click();
-                inputText.SendKeys(cliente.Mensaje);
-                await Task.Delay(500);
+                    var inputText = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+                    inputText.Click();
+                    inputText.SendKeys(cliente.Mensaje);
+                    //await Task.Delay(500);
 
-                // 📎 Adjuntar archivo
-                //MessageBox.Show("Paso 4: Adjuntar archivo", "Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                progreso.Report("Paso 4: Adjuntar archivo");
+                    // 📎 Adjuntar archivo
+                    progreso.Report("Paso 4: Adjuntar archivo");
 
-                // 📎 Adjuntar archivo usando Shift+Tab + Enter
-                //MessageBox.Show("Paso 4: Adjuntar archivo (Shift+Tab + Enter)", "Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // 📎 Adjuntar archivo usando Shift+Tab + Enter
+                    var actions = new Actions(driver);
+
+                    // Shift+Tab dos veces
+                    actions.KeyDown(OpenQA.Selenium.Keys.Shift).SendKeys(OpenQA.Selenium.Keys.Tab).SendKeys(OpenQA.Selenium.Keys.Tab).KeyUp(OpenQA.Selenium.Keys.Shift).Perform();
+                    await Task.Delay(500);
+
+                    // Enter para activar el botón
+                    actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+                    await Task.Delay(500);
+
+                    // Ahora enviamos el archivo al input (puede estar oculto)
+                    var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
+                    inputFile.SendKeys(archivoPath);
+                    await Task.Delay(2000);
+
+                    // 📤 Enviar
+                    progreso.Report("Paso 5: Enviando archivo");
+
+                    var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//div[@aria-label='Enviar']")));
+                    enviar.Click();
+
+                    // ✅ Confirmación de envío
+                    progreso.Report("Paso 6: Confirmando envío");
+
+                    try
+                    {
+                        new WebDriverWait(driver, TimeSpan.FromSeconds(90))
+                            .Until(d => d.FindElements(By.CssSelector("span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
+                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {cliente.Archivo}");
+                    }
+                    catch (WebDriverTimeoutException)
+                    {
+                        progreso.Report($"⚠️ El envío a {cliente.Telefono} no se confirmó (pendiente).");
+                    }
+
+                    await Task.Delay(3000);
+                }
+                catch (Exception ex)
+                {
+                    progreso.Report($"❗ Error enviando a {cliente.Telefono}: {ex.Message}");
+                }
+
+            }
+            else
+            {
                 var actions = new Actions(driver);
 
-                // Shift+Tab dos veces
+                progreso.Report("Paso 1: Buscar contacto");
+
+                var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(
+                    By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
+
+                actions.MoveToElement(searchBox).Click()
+                       .SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter)
+                       .Perform();
+
+                progreso.Report("Paso 2: Esperando apertura de chat");
+                wait.Until(ExpectedConditions.ElementIsVisible(
+                    By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+                await Task.Delay(2000);
+
+                progreso.Report("Paso 3: Escribiendo mensaje");
+                var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
+                    By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+
+                actions.MoveToElement(inputText).Click()
+                       .SendKeys(cliente.Mensaje)
+                       .Perform();
+
+                progreso.Report("Paso 4: Adjuntar archivo");
+
                 actions.KeyDown(OpenQA.Selenium.Keys.Shift).SendKeys(OpenQA.Selenium.Keys.Tab).SendKeys(OpenQA.Selenium.Keys.Tab).KeyUp(OpenQA.Selenium.Keys.Shift).Perform();
                 await Task.Delay(200);
-
-                // Enter para activar el botón
                 actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
                 await Task.Delay(500);
 
-                // Ahora enviamos el archivo al input (puede estar oculto)
                 var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
                 inputFile.SendKeys(archivoPath);
                 await Task.Delay(1000);
 
-                // 📤 Enviar
-                //MessageBox.Show("Paso 5: Enviando archivo", "Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 progreso.Report("Paso 5: Enviando archivo");
-
                 var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//div[@aria-label='Enviar']")));
                 enviar.Click();
 
-                // ✅ Confirmación de envío
-                //MessageBox.Show("Paso 6: Confirmando envío", "Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 progreso.Report("Paso 6: Confirmando envío");
-
                 try
                 {
                     new WebDriverWait(driver, TimeSpan.FromSeconds(90))
@@ -177,10 +284,6 @@ namespace GoriziaUtilidades
                 }
 
                 await Task.Delay(5000);
-            }
-            catch (Exception ex)
-            {
-                progreso.Report($"❗ Error enviando a {cliente.Telefono}: {ex.Message}");
             }
         }
     }
