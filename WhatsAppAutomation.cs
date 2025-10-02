@@ -1,16 +1,16 @@
 ﻿using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Edge;
 using OpenQA.Selenium.Firefox;
-using OpenQA.Selenium.IE;
-using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Interactions;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
 using System;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using WebDriverManager;
 using WebDriverManager.DriverConfigs.Impl;
 
@@ -52,8 +52,23 @@ namespace GoriziaUtilidades
                         progreso.Report("⏹️ Cancelado por el usuario.");
                         break;
                     }
-                    
-                    await EnviarMensajeAsync(driver, wait, cliente, folder, progreso, navegador);
+
+                    try
+                    {
+                        await EnviarMensajeAsync(driver, wait, cliente, folder, progreso, navegador);
+
+                        // Si se envió correctamente
+                        cliente.Estado = "OK";
+                        //cliente.Error = "";
+                        //cliente.FechaEnvio = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Si hubo fallo
+                        //cliente.Estado = "FALLÓ";
+                        cliente.Estado = ex.Message;
+                        //cliente.FechaEnvio = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    }
 
                     processed++;
                     int percent = (int)((processed / (double)total) * 100);
@@ -61,6 +76,22 @@ namespace GoriziaUtilidades
                 }
 
                 driver.Quit();
+
+                //string resultadoCsv = Path.Combine(folder, "clientes_resultado.csv");
+                string resultadoCsv = Path.Combine(folder, Path.GetFileNameWithoutExtension(csvFile) + "_resultado.csv");
+
+                using (var writer = new StreamWriter(resultadoCsv, false, Encoding.GetEncoding(1252)))
+                {
+                    // Encabezado
+                    //writer.WriteLine("Nombre,Telefono,Importe,Mensaje,Archivo,LinkPago,Estado,Error,FechaEnvio");
+
+                    foreach (var c in clientes)
+                    {
+                        writer.WriteLine($"{CsvParser.EscaparCsv(c.Estado)}");
+                    }
+                }
+                progreso.Report($"✅ CSV de resultados generado en: {resultadoCsv}");
+
             }
         }
 
@@ -72,7 +103,7 @@ namespace GoriziaUtilidades
             switch (navegador.ToLower())
             {
                 case "c":
-                    new DriverManager().SetUpDriver(new ChromeConfig());
+                    new DriverManager().SetUpDriver(new ChromeConfig(), "MatchingBrowser");
                     var chromeOptions = new ChromeOptions();
                     string chromeProfile = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -269,7 +300,12 @@ namespace GoriziaUtilidades
 
                 var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
                 inputFile.SendKeys(archivoPath);
-                await Task.Delay(1000);
+                //await Task.Delay(3000);
+                wait.Until(d =>
+                {
+                    var preview = d.FindElements(By.CssSelector("img[src^='blob:']"));
+                    return preview.Count > 0 && preview.All(p => p.Displayed);
+                });
 
                 progreso.Report("Paso 5: Enviando archivo");
                 var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//div[@aria-label='Enviar']")));

@@ -21,17 +21,16 @@ namespace GoriziaUtilidades
 
                 var record = new ContactoInfo
                 {
-                    Nombre = cols[0].Trim(),
                     Telefono = cols[1].Trim(),
                     Importe = cols[2].Trim(),
                     Mensaje = cols[3].Trim(),
                     Archivo = cols[4].Trim(),
-                    LinkPago = cols.Length > 5 ? cols[5].Trim() : ""
+                    //LinkPago = cols.Length > 5 ? cols[5].Trim() : ""
                 };
 
                 // agregar link de pago al mensaje si existe
-                if (!string.IsNullOrWhiteSpace(record.LinkPago))
-                    record.Mensaje += "\n💳 Pagar rápido: " + record.LinkPago;
+                //if (!string.IsNullOrWhiteSpace(record.LinkPago))
+                    //record.Mensaje += "\n💳 Pagar rápido: " + record.LinkPago;
 
                 result.Add(record);
             }
@@ -52,5 +51,14 @@ namespace GoriziaUtilidades
             parts.Add(sb.ToString());
             return parts.ToArray();
         }
+
+        public static string EscaparCsv(string campo)
+        {
+            if (string.IsNullOrEmpty(campo))
+                return "\"\"";
+
+            return "\"" + campo.Replace("\"", "\"\"") + "\"";
+        }
+
     }
 }
