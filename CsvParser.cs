@@ -17,14 +17,14 @@ namespace GoriziaUtilidades
             foreach (var line in lines)
             {
                 var cols = ParseCsvLine(line);
-                if (cols.Length < 5) continue;
+                //if (cols.Length < 4) continue;
 
                 var record = new ContactoInfo
                 {
-                    Telefono = cols[1].Trim(),
-                    Importe = cols[2].Trim(),
-                    Mensaje = cols[3].Trim(),
-                    Archivo = cols[4].Trim(),
+                    Telefono = cols[0].Trim(),
+                    Importe = cols[1].Trim(),
+                    Mensaje = cols[2].Trim(),
+                    Archivo = cols[3].Trim(),
                     //LinkPago = cols.Length > 5 ? cols[5].Trim() : ""
                 };
 
