@@ -202,6 +202,20 @@ namespace GoriziaUtilidades
                     searchBox.Clear();
                     searchBox.SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter);
 
+                    await Task.Delay(1000);
+
+                    //Verificar si aparece "No encontrado"
+                    var notFound = driver.FindElements(By.XPath(
+                        "//span[contains(text(), 'No se encontraron resultados') or " +
+                        "contains(text(), 'No se encontró ningún chat, contacto ni mensaje')]"));
+
+                    if (notFound.Count > 0)
+                    {
+                        cliente.Estado = $"❌ Número NO agendado: {cliente.Telefono}";
+                        //progreso.Report(cliente.Estado);
+                        //return; // se corta este envío, pero el cliente queda registrado
+                    }
+
                     // 🟢 Esperar apertura de chat
                     progreso.Report("Paso 2: Esperando apertura de chat");
 
@@ -277,6 +291,19 @@ namespace GoriziaUtilidades
                 actions.MoveToElement(searchBox).Click()
                        .SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter)
                        .Perform();
+
+                await Task.Delay(1000); // tiempo para que aparezca cartel si no existe
+
+                // 🔎 Verificar si aparece el mensaje de "no encontrado"
+                var notFound = driver.FindElements(By.XPath(
+                    "//span[contains(@class,'_ao3e') and contains(text(),'No se')]"));
+
+                if (notFound.Count > 0)
+                {
+                    cliente.Estado = $"❌ Número NO agendado: {cliente.Telefono}";
+                    progreso.Report(cliente.Estado);
+                    return; // cortamos este envío, pero el cliente queda con estado
+                }
 
                 progreso.Report("Paso 2: Esperando apertura de chat");
                 wait.Until(ExpectedConditions.ElementIsVisible(
