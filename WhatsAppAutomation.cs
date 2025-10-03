@@ -197,10 +197,30 @@ namespace GoriziaUtilidades
                     // 🔎 Buscar contacto
                     progreso.Report("Paso 1: Buscar contacto");
 
-                    var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
-                    searchBox.Click();
-                    searchBox.Clear();
-                    searchBox.SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter);
+                    var nuevoChat = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@aria-label='Nuevo chat']")));
+                    nuevoChat.Click();
+                    var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@contenteditable='true' and @role='textbox']")));
+                    inputBusqueda.Clear();
+                    inputBusqueda.SendKeys(cliente.Mensaje);
+
+                    await Task.Delay(1000);
+
+                    var resultados = driver.FindElements(By.XPath("//span[contains(text(), 'No se encontraron resultados')]"));
+
+                    if (resultados.Count > 0)
+                    {
+                        // No existe el número
+                        cliente.Estado = $"❌ Número inválido: {cliente.Telefono}";
+                        progreso.Report(cliente.Estado);
+                        return;
+                    }
+
+                    // Caso contrario, apretar ENTER para abrir el chat con ese número
+                    inputBusqueda.SendKeys(Keys.Enter);
+                    //var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
+                    //searchBox.Click();
+                    //searchBox.Clear();
+                    //searchBox.SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter);
 
                     // 🟢 Esperar apertura de chat
                     progreso.Report("Paso 2: Esperando apertura de chat");
