@@ -57,17 +57,17 @@ namespace GoriziaUtilidades
                     {
                         await EnviarMensajeAsync(driver, wait, cliente, folder, progreso, navegador);
 
-                        // Si se envió correctamente
-                        cliente.Estado = "OK";
-                        //cliente.Error = "";
-                        //cliente.FechaEnvio = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        // CORREGIR: Solo marcar OK si el estado no fue ya modificado por errores
+                        if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
+                        {
+                            cliente.Estado = "OK";
+                        }
                     }
                     catch (Exception ex)
                     {
-                        // Si hubo fallo
-                        //cliente.Estado = "FALLÓ";
-                        cliente.Estado = ex.Message;
-                        //cliente.FechaEnvio = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        // Capturar el error correctamente
+                        cliente.Estado = $"ERROR: {ex.Message}";
+                        progreso.Report($"❌ {cliente.Telefono}: {ex.Message}");
                     }
 
                     processed++;
@@ -194,28 +194,46 @@ namespace GoriziaUtilidades
             {
                 try
                 {
-                    // 🔎 Buscar contacto
                     progreso.Report("Paso 1: Buscar contacto");
 
                     var nuevoChat = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@aria-label='Nuevo chat']")));
-                    nuevoChat.Click();
-                    var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@contenteditable='true' and @role='textbox']")));
-                    inputBusqueda.Clear();
-                    inputBusqueda.SendKeys(cliente.Mensaje);
 
-                    await Task.Delay(1000);
+                    var actions = new Actions(driver);
+                    actions.MoveToElement(nuevoChat).Click().Perform();
 
-                    var resultados = driver.FindElements(By.XPath("//span[contains(text(), 'No se encontraron resultados')]"));
-
-                    if (resultados.Count > 0)
+                    try
                     {
-                        // No existe el número
-                        cliente.Estado = $"❌ Número inválido: {cliente.Telefono}";
-                        progreso.Report(cliente.Estado);
-                        return;
+                        await Task.Delay(500);
+                        var _ = wait.Until(ExpectedConditions.ElementIsVisible(
+                            By.XPath("//div[@contenteditable='true' and @role='textbox']")));
+                    }
+                    catch
+                    {
+                        IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                        js.ExecuteScript("arguments[0].click();", nuevoChat);
+                        await Task.Delay(500);
                     }
 
-                    // Caso contrario, apretar ENTER para abrir el chat con ese número
+                    var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(
+                        By.XPath("//div[@contenteditable='true' and @role='textbox']")));
+
+                    // ✅ CAMBIO: Limpiar completamente el campo
+                    inputBusqueda.Click();
+                    inputBusqueda.SendKeys(Keys.Control + "a"); // Seleccionar todo
+                    inputBusqueda.SendKeys(Keys.Backspace); // Borrar
+                    await Task.Delay(300);
+
+                    inputBusqueda.SendKeys(cliente.Telefono);
+                    await Task.Delay(1500); // ✅ CAMBIO: Más tiempo para que cargue resultados
+
+                    var resultados = driver.FindElements(By.XPath("//span[contains(text(), 'No se encontraron resultados')]"));
+                    if (resultados.Count > 0)
+                    {
+                        cliente.Estado = $"❌ Número inválido: {cliente.Telefono}";
+                        progreso.Report(cliente.Estado);
+                        throw new Exception($"Número inválido: {cliente.Telefono}");
+                    }
+
                     inputBusqueda.SendKeys(Keys.Enter);
                     //var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
                     //searchBox.Click();
@@ -242,7 +260,7 @@ namespace GoriziaUtilidades
                     progreso.Report("Paso 4: Adjuntar archivo");
 
                     // 📎 Adjuntar archivo usando Shift+Tab + Enter
-                    var actions = new Actions(driver);
+                    //var actions = new Actions(driver);
 
                     // Shift+Tab dos veces
                     actions.KeyDown(OpenQA.Selenium.Keys.Shift).SendKeys(OpenQA.Selenium.Keys.Tab).SendKeys(OpenQA.Selenium.Keys.Tab).KeyUp(OpenQA.Selenium.Keys.Shift).Perform();
@@ -274,76 +292,148 @@ namespace GoriziaUtilidades
                     }
                     catch (WebDriverTimeoutException)
                     {
+                        cliente.Estado = "Envío pendiente";
                         progreso.Report($"⚠️ El envío a {cliente.Telefono} no se confirmó (pendiente).");
+                        throw new Exception("Timeout esperando confirmación de envío");
                     }
 
                     await Task.Delay(3000);
                 }
                 catch (Exception ex)
                 {
+                    cliente.Estado = $"ERROR: {ex.Message}";
                     progreso.Report($"❗ Error enviando a {cliente.Telefono}: {ex.Message}");
+                    throw;
                 }
 
             }
-            else
+            else // Firefox
             {
                 var actions = new Actions(driver);
 
-                progreso.Report("Paso 1: Buscar contacto");
-
-                var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(
-                    By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
-
-                actions.MoveToElement(searchBox).Click()
-                       .SendKeys(cliente.Telefono + OpenQA.Selenium.Keys.Enter)
-                       .Perform();
-
-                progreso.Report("Paso 2: Esperando apertura de chat");
-                wait.Until(ExpectedConditions.ElementIsVisible(
-                    By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
-                await Task.Delay(2000);
-
-                progreso.Report("Paso 3: Escribiendo mensaje");
-                var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
-                    By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
-
-                actions.MoveToElement(inputText).Click()
-                       .SendKeys(cliente.Mensaje)
-                       .Perform();
-
-                progreso.Report("Paso 4: Adjuntar archivo");
-
-                actions.KeyDown(OpenQA.Selenium.Keys.Shift).SendKeys(OpenQA.Selenium.Keys.Tab).SendKeys(OpenQA.Selenium.Keys.Tab).KeyUp(OpenQA.Selenium.Keys.Shift).Perform();
-                await Task.Delay(200);
-                actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
-                await Task.Delay(500);
-
-                var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
-                inputFile.SendKeys(archivoPath);
-                //await Task.Delay(3000);
-                wait.Until(d =>
-                {
-                    var preview = d.FindElements(By.CssSelector("img[src^='blob:']"));
-                    return preview.Count > 0 && preview.All(p => p.Displayed);
-                });
-
-                progreso.Report("Paso 5: Enviando archivo");
-                var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(By.XPath("//div[@aria-label='Enviar']")));
-                enviar.Click();
-
-                progreso.Report("Paso 6: Confirmando envío");
                 try
                 {
-                    new WebDriverWait(driver, TimeSpan.FromSeconds(90))
-                        .Until(d => d.FindElements(By.CssSelector("span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
-                    progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {cliente.Archivo}");
-                }
-                catch (WebDriverTimeoutException)
-                {
-                    progreso.Report($"⚠️ El envío a {cliente.Telefono} no se confirmó (pendiente).");
-                }
+                    // 🔎 Buscar contacto
+                    progreso.Report("Paso 1: Buscar contacto");
 
-                await Task.Delay(5000);
+                    var nuevoChat = wait.Until(ExpectedConditions.ElementIsVisible(
+                        By.XPath("//div[@aria-label='Nuevo chat']")));
+
+                    actions.MoveToElement(nuevoChat).Click().Perform();
+
+                    try
+                    {
+                        await Task.Delay(500);
+                        var _ = wait.Until(ExpectedConditions.ElementIsVisible(
+                            By.XPath("//div[@contenteditable='true' and @role='textbox']")));
+                    }
+                    catch
+                    {
+                        IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                        js.ExecuteScript("arguments[0].click();", nuevoChat);
+                        await Task.Delay(500);
+                    }
+
+                    var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(
+                        By.XPath("//div[@contenteditable='true' and @role='textbox']")));
+
+                    // Limpiar campo completamente
+                    inputBusqueda.Click();
+                    inputBusqueda.SendKeys(Keys.Control + "a");
+                    inputBusqueda.SendKeys(Keys.Backspace);
+                    await Task.Delay(300);
+
+                    foreach (char c in cliente.Telefono)
+                    {
+                        inputBusqueda.SendKeys(c.ToString());
+                        await Task.Delay(50); // 50ms entre cada carácter
+                    }
+                    await Task.Delay(1500);
+
+                    // Verificar si no se encontraron resultados
+                    var resultados = driver.FindElements(By.XPath(
+                        "//span[contains(text(), 'No se encontraron resultados')]"));
+
+                    if (resultados.Count > 0)
+                    {
+                        cliente.Estado = $"❌ Número inválido: {cliente.Telefono}";
+                        progreso.Report(cliente.Estado);
+                        throw new Exception($"Número inválido: {cliente.Telefono}");
+                    }
+
+                    inputBusqueda.SendKeys(Keys.Enter);
+
+                    // 🟢 Esperar apertura de chat
+                    progreso.Report("Paso 2: Esperando apertura de chat");
+                    wait.Until(ExpectedConditions.ElementIsVisible(
+                        By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+                    await Task.Delay(2000);
+
+                    // 💬 Escribir mensaje
+                    progreso.Report("Paso 3: Escribiendo mensaje");
+                    var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
+                        By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+
+                    actions.MoveToElement(inputText).Click()
+                           .SendKeys(cliente.Mensaje)
+                           .Perform();
+
+                    // 📎 Adjuntar archivo
+                    progreso.Report("Paso 4: Adjuntar archivo");
+
+                    actions.KeyDown(OpenQA.Selenium.Keys.Shift)
+                           .SendKeys(OpenQA.Selenium.Keys.Tab)
+                           .SendKeys(OpenQA.Selenium.Keys.Tab)
+                           .KeyUp(OpenQA.Selenium.Keys.Shift)
+                           .Perform();
+                    await Task.Delay(200);
+
+                    actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+                    await Task.Delay(500);
+
+                    var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
+                    inputFile.SendKeys(archivoPath);
+
+                    wait.Until(d =>
+                    {
+                        var preview = d.FindElements(By.CssSelector("img[src^='blob:']"));
+                        return preview.Count > 0 && preview.All(p => p.Displayed);
+                    });
+
+                    // 📤 Enviar
+                    progreso.Report("Paso 5: Enviando archivo");
+                    var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
+                        By.XPath("//div[@aria-label='Enviar']")));
+                    enviar.Click();
+
+                    // ✅ Confirmación de envío
+                    progreso.Report("Paso 6: Confirmando envío");
+                    try
+                    {
+                        new WebDriverWait(driver, TimeSpan.FromSeconds(120))
+                            .Until(d => d.FindElements(By.CssSelector(
+                                "span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
+                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {cliente.Archivo}");
+                    }
+                    catch (WebDriverTimeoutException)
+                    {
+                        cliente.Estado = "⚠️ Envío pendiente";
+                        progreso.Report($"⚠️ El envío a {cliente.Telefono} no se confirmó (pendiente).");
+                        throw new Exception("Timeout esperando confirmación de envío");
+                    }
+
+                    await Task.Delay(3000);
+
+                    // Cerrar cualquier diálogo
+                    actions.SendKeys(Keys.Escape).Perform();
+                    await Task.Delay(500);
+                }
+                catch (Exception ex)
+                {
+                    cliente.Estado = $"ERROR: {ex.Message}";
+                    progreso.Report($"❗ Error enviando a {cliente.Telefono}: {ex.Message}");
+                    throw;
+                }
             }
         }
     }
