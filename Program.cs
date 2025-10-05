@@ -48,7 +48,7 @@ namespace GoriziaUtilidades
 
                 // Ejecutar RunAsync de forma síncrona
                 Task.Run(() =>
-                    automation.RunAsync(csvFile, progreso, progresoBarra, CancellationToken.None, navegador)
+                    automation.Run(csvFile, progreso, progresoBarra, CancellationToken.None, navegador)
                 ).GetAwaiter().GetResult();
 
                 //MessageBox.Show("✅ RunAsync terminó correctamente", "DEBUG", MessageBoxButtons.OK, MessageBoxIcon.Information);

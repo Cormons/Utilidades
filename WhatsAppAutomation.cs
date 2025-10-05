@@ -18,7 +18,7 @@ namespace GoriziaUtilidades
 {
     public class WhatsAppAutomation
     {
-        public async Task RunAsync(string csvFile, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct, string navegador = "c")
+        public void Run(string csvFile, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct, string navegador = "c")
         {
             if (!File.Exists(csvFile))
                 throw new FileNotFoundException("No se encontró el archivo CSV", csvFile);
@@ -55,7 +55,7 @@ namespace GoriziaUtilidades
 
                     try
                     {
-                        await EnviarMensajeAsync(driver, wait, cliente, folder, progreso, navegador);
+                        EnviarMensaje(driver, wait, cliente, folder, progreso, navegador);
 
                         // CORREGIR: Solo marcar OK si el estado no fue ya modificado por errores
                         if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
@@ -175,7 +175,7 @@ namespace GoriziaUtilidades
             return driver;
         }
 
-        private async Task EnviarMensajeAsync(
+        private void EnviarMensaje(
             IWebDriver driver,
             WebDriverWait wait,
             ContactoInfo cliente,
@@ -203,7 +203,7 @@ namespace GoriziaUtilidades
 
                     try
                     {
-                        await Task.Delay(500);
+                        Thread.Sleep(500);
                         var _ = wait.Until(ExpectedConditions.ElementIsVisible(
                             By.XPath("//div[@contenteditable='true' and @role='textbox']")));
                     }
@@ -211,7 +211,7 @@ namespace GoriziaUtilidades
                     {
                         IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
                         js.ExecuteScript("arguments[0].click();", nuevoChat);
-                        await Task.Delay(500);
+                        Thread.Sleep(500);
                     }
 
                     var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(
@@ -221,10 +221,15 @@ namespace GoriziaUtilidades
                     inputBusqueda.Click();
                     inputBusqueda.SendKeys(Keys.Control + "a"); // Seleccionar todo
                     inputBusqueda.SendKeys(Keys.Backspace); // Borrar
-                    await Task.Delay(300);
+                    Thread.Sleep(300);    
 
-                    inputBusqueda.SendKeys(cliente.Telefono);
-                    await Task.Delay(1500); // ✅ CAMBIO: Más tiempo para que cargue resultados
+                    foreach (char c in cliente.Telefono)
+                    {
+                        inputBusqueda.SendKeys(c.ToString());
+                        Thread.Sleep(50); // 50ms entre caracteres
+                    }
+
+                    Thread.Sleep(1500);
 
                     var resultados = driver.FindElements(By.XPath("//span[contains(text(), 'No se encontraron resultados')]"));
                     if (resultados.Count > 0)
@@ -264,16 +269,16 @@ namespace GoriziaUtilidades
 
                     // Shift+Tab dos veces
                     actions.KeyDown(OpenQA.Selenium.Keys.Shift).SendKeys(OpenQA.Selenium.Keys.Tab).SendKeys(OpenQA.Selenium.Keys.Tab).KeyUp(OpenQA.Selenium.Keys.Shift).Perform();
-                    await Task.Delay(500);
+                    Thread.Sleep(500);
 
                     // Enter para activar el botón
                     actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
-                    await Task.Delay(500);
+                    Thread.Sleep(500);
 
                     // Ahora enviamos el archivo al input (puede estar oculto)
                     var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
                     inputFile.SendKeys(archivoPath);
-                    await Task.Delay(2000);
+                    Thread.Sleep(2000);
 
                     // 📤 Enviar
                     progreso.Report("Paso 5: Enviando archivo");
@@ -297,7 +302,7 @@ namespace GoriziaUtilidades
                         throw new Exception("Timeout esperando confirmación de envío");
                     }
 
-                    await Task.Delay(3000);
+                    Thread.Sleep(3000);
                 }
                 catch (Exception ex)
                 {
@@ -323,7 +328,7 @@ namespace GoriziaUtilidades
 
                     try
                     {
-                        await Task.Delay(500);
+                        Thread.Sleep(500);
                         var _ = wait.Until(ExpectedConditions.ElementIsVisible(
                             By.XPath("//div[@contenteditable='true' and @role='textbox']")));
                     }
@@ -331,7 +336,7 @@ namespace GoriziaUtilidades
                     {
                         IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
                         js.ExecuteScript("arguments[0].click();", nuevoChat);
-                        await Task.Delay(500);
+                        Thread.Sleep(500);
                     }
 
                     var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(
@@ -341,14 +346,14 @@ namespace GoriziaUtilidades
                     inputBusqueda.Click();
                     inputBusqueda.SendKeys(Keys.Control + "a");
                     inputBusqueda.SendKeys(Keys.Backspace);
-                    await Task.Delay(300);
+                    Thread.Sleep(300);
 
                     foreach (char c in cliente.Telefono)
                     {
                         inputBusqueda.SendKeys(c.ToString());
-                        await Task.Delay(50); // 50ms entre cada carácter
+                        Thread.Sleep(50); // 50ms entre cada carácter
                     }
-                    await Task.Delay(1500);
+                    Thread.Sleep(1500);
 
                     // Verificar si no se encontraron resultados
                     var resultados = driver.FindElements(By.XPath(
@@ -367,7 +372,7 @@ namespace GoriziaUtilidades
                     progreso.Report("Paso 2: Esperando apertura de chat");
                     wait.Until(ExpectedConditions.ElementIsVisible(
                         By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
-                    await Task.Delay(2000);
+                    Thread.Sleep(2000);
 
                     // 💬 Escribir mensaje
                     progreso.Report("Paso 3: Escribiendo mensaje");
@@ -386,10 +391,10 @@ namespace GoriziaUtilidades
                            .SendKeys(OpenQA.Selenium.Keys.Tab)
                            .KeyUp(OpenQA.Selenium.Keys.Shift)
                            .Perform();
-                    await Task.Delay(200);
+                    Thread.Sleep(200);
 
                     actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
-                    await Task.Delay(500);
+                    Thread.Sleep(500);
 
                     var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
                     inputFile.SendKeys(archivoPath);
@@ -422,11 +427,11 @@ namespace GoriziaUtilidades
                         throw new Exception("Timeout esperando confirmación de envío");
                     }
 
-                    await Task.Delay(3000);
+                    Thread.Sleep(3000);
 
                     // Cerrar cualquier diálogo
                     actions.SendKeys(Keys.Escape).Perform();
-                    await Task.Delay(500);
+                    Thread.Sleep(500);
                 }
                 catch (Exception ex)
                 {
