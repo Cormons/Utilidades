@@ -50,9 +50,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="selenium-manager.exe">
+    <None Include="selenium-manager.exe">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Compile>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="AngleSharp, Version=1.1.2.0, Culture=neutral, PublicKeyToken=e83494dcdc6d31ea, processorArchitecture=MSIL">

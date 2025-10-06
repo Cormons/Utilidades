@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cormons_Wpp", "Cormons_Wpp.csproj", "{45E4DC14-3E97-40C0-9A5B-DE9BE761C353}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cormons_Wsp", "Cormons_Wsp.csproj", "{45E4DC14-3E97-40C0-9A5B-DE9BE761C353}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
