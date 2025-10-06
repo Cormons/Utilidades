@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{45E4DC14-3E97-40C0-9A5B-DE9BE761C353}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>Cormons_Wpp</RootNamespace>
-    <AssemblyName>Cormons_Wpp</AssemblyName>
+    <RootNamespace>Cormons_Wsp</RootNamespace>
+    <AssemblyName>Cormons_Wsp</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
