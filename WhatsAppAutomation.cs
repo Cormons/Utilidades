@@ -178,18 +178,32 @@ namespace GoriziaUtilidades
         }
 
         private void EnviarMensaje(
-            IWebDriver driver,
-            WebDriverWait wait,
-            ContactoInfo cliente,
-            string folder,
-            IProgress<string> progreso,
-            string navegador)
+    IWebDriver driver,
+    WebDriverWait wait,
+    ContactoInfo cliente,
+    string folder,
+    IProgress<string> progreso,
+    string navegador)
         {
-            string archivoPath = Path.Combine(folder, cliente.Archivo);
-            if (!File.Exists(archivoPath))
+            // Validar que al menos uno de los dos exista
+            bool tieneArchivo = !string.IsNullOrWhiteSpace(cliente.Archivo);
+            bool tieneMensaje = !string.IsNullOrWhiteSpace(cliente.Mensaje);
+
+            if (!tieneArchivo && !tieneMensaje)
             {
-                cliente.Estado = $"ERROR: Archivo no encontrado - {cliente.Archivo}";
-                throw new Exception($"Archivo no encontrado: {archivoPath}");
+                cliente.Estado = "ERROR: Debe especificar al menos un mensaje o un archivo";
+                throw new Exception("Debe especificar al menos un mensaje o un archivo");
+            }
+
+            string archivoPath = null;
+            if (tieneArchivo)
+            {
+                archivoPath = Path.Combine(folder, cliente.Archivo);
+                if (!File.Exists(archivoPath))
+                {
+                    cliente.Estado = $"ERROR: Archivo no encontrado - {cliente.Archivo}";
+                    throw new Exception($"Archivo no encontrado: {archivoPath}");
+                }
             }
 
             if (navegador != "f")
@@ -246,31 +260,47 @@ namespace GoriziaUtilidades
                     wait.Until(ExpectedConditions.ElementIsVisible(
                         By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
 
-                    progreso.Report("Paso 3: Escribiendo mensaje");
-                    var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
-                        By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
-                    inputText.Click();
-                    inputText.SendKeys(cliente.Mensaje);
+                    // Escribir mensaje solo si existe
+                    if (tieneMensaje)
+                    {
+                        progreso.Report("Paso 3: Escribiendo mensaje");
+                        var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
+                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+                        inputText.Click();
+                        inputText.SendKeys(cliente.Mensaje);
+                    }
 
-                    progreso.Report("Paso 4: Adjuntar archivo");
-                    actions.KeyDown(OpenQA.Selenium.Keys.Shift)
-                           .SendKeys(OpenQA.Selenium.Keys.Tab)
-                           .SendKeys(OpenQA.Selenium.Keys.Tab)
-                           .KeyUp(OpenQA.Selenium.Keys.Shift)
-                           .Perform();
-                    Thread.Sleep(500);
+                    // Adjuntar archivo solo si existe
+                    if (tieneArchivo)
+                    {
+                        progreso.Report("Paso 4: Adjuntar archivo");
+                        actions.KeyDown(OpenQA.Selenium.Keys.Shift)
+                               .SendKeys(OpenQA.Selenium.Keys.Tab)
+                               .SendKeys(OpenQA.Selenium.Keys.Tab)
+                               .KeyUp(OpenQA.Selenium.Keys.Shift)
+                               .Perform();
+                        Thread.Sleep(500);
 
-                    actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
-                    Thread.Sleep(500);
+                        actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+                        Thread.Sleep(500);
 
-                    var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
-                    inputFile.SendKeys(archivoPath);
-                    Thread.Sleep(2000);
+                        var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
+                        inputFile.SendKeys(archivoPath);
+                        Thread.Sleep(2000);
 
-                    progreso.Report("Paso 5: Enviando archivo");
-                    var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
-                        By.XPath("//div[@aria-label='Enviar']")));
-                    enviar.Click();
+                        progreso.Report("Paso 5: Enviando archivo");
+                        var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
+                            By.XPath("//div[@aria-label='Enviar']")));
+                        enviar.Click();
+                    }
+                    else
+                    {
+                        // Si solo hay mensaje, enviar con Enter
+                        progreso.Report("Paso 5: Enviando mensaje");
+                        var inputText = driver.FindElement(
+                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']"));
+                        inputText.SendKeys(Keys.Enter);
+                    }
 
                     progreso.Report("Paso 6: Confirmando envío");
                     try
@@ -278,7 +308,10 @@ namespace GoriziaUtilidades
                         new WebDriverWait(driver, TimeSpan.FromSeconds(90))
                             .Until(d => d.FindElements(By.CssSelector(
                                 "span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
-                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {cliente.Archivo}");
+
+                        string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
+                                      tieneArchivo ? cliente.Archivo : "mensaje";
+                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
                     }
                     catch (WebDriverTimeoutException)
                     {
@@ -387,42 +420,56 @@ namespace GoriziaUtilidades
 
                     Thread.Sleep(2000);
 
-                    // Escribir mensaje
-                    progreso.Report("Paso 3: Escribiendo mensaje");
-                    var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
-                        By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
-
-                    actions.MoveToElement(inputText).Click()
-                           .SendKeys(cliente.Mensaje)
-                           .Perform();
-
-                    // Adjuntar archivo
-                    progreso.Report("Paso 4: Adjuntar archivo");
-
-                    actions.KeyDown(OpenQA.Selenium.Keys.Shift)
-                           .SendKeys(OpenQA.Selenium.Keys.Tab)
-                           .SendKeys(OpenQA.Selenium.Keys.Tab)
-                           .KeyUp(OpenQA.Selenium.Keys.Shift)
-                           .Perform();
-                    Thread.Sleep(200);
-
-                    actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
-                    Thread.Sleep(500);
-
-                    var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
-                    inputFile.SendKeys(archivoPath);
-
-                    wait.Until(d =>
+                    // Escribir mensaje solo si existe
+                    if (tieneMensaje)
                     {
-                        var preview = d.FindElements(By.CssSelector("img[src^='blob:']"));
-                        return preview.Count > 0 && preview.All(p => p.Displayed);
-                    });
+                        progreso.Report("Paso 3: Escribiendo mensaje");
+                        var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
+                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
 
-                    // Enviar
-                    progreso.Report("Paso 5: Enviando archivo");
-                    var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
-                        By.XPath("//div[@aria-label='Enviar']")));
-                    enviar.Click();
+                        actions.MoveToElement(inputText).Click()
+                               .SendKeys(cliente.Mensaje)
+                               .Perform();
+                    }
+
+                    // Adjuntar archivo solo si existe
+                    if (tieneArchivo)
+                    {
+                        progreso.Report("Paso 4: Adjuntar archivo");
+
+                        actions.KeyDown(OpenQA.Selenium.Keys.Shift)
+                               .SendKeys(OpenQA.Selenium.Keys.Tab)
+                               .SendKeys(OpenQA.Selenium.Keys.Tab)
+                               .KeyUp(OpenQA.Selenium.Keys.Shift)
+                               .Perform();
+                        Thread.Sleep(200);
+
+                        actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+                        Thread.Sleep(500);
+
+                        var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
+                        inputFile.SendKeys(archivoPath);
+
+                        wait.Until(d =>
+                        {
+                            var preview = d.FindElements(By.CssSelector("img[src^='blob:']"));
+                            return preview.Count > 0 && preview.All(p => p.Displayed);
+                        });
+
+                        // Enviar
+                        progreso.Report("Paso 5: Enviando archivo");
+                        var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
+                            By.XPath("//div[@aria-label='Enviar']")));
+                        enviar.Click();
+                    }
+                    else
+                    {
+                        // Si solo hay mensaje, enviar con Enter
+                        progreso.Report("Paso 5: Enviando mensaje");
+                        var inputText = driver.FindElement(
+                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']"));
+                        inputText.SendKeys(Keys.Enter);
+                    }
 
                     // Confirmación de envío
                     progreso.Report("Paso 6: Confirmando envío");
@@ -431,7 +478,10 @@ namespace GoriziaUtilidades
                         new WebDriverWait(driver, TimeSpan.FromSeconds(120))
                             .Until(d => d.FindElements(By.CssSelector(
                                 "span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
-                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {cliente.Archivo}");
+
+                        string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
+                                      tieneArchivo ? cliente.Archivo : "mensaje";
+                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
                     }
                     catch (WebDriverTimeoutException)
                     {
