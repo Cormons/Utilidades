@@ -14,6 +14,7 @@ namespace GoriziaUtilidades
             var result = new List<ContactoInfo>();
             var lines = File.ReadAllLines(path, Encoding.GetEncoding(1252))
                             .Where(l => !string.IsNullOrWhiteSpace(l));
+
             foreach (var line in lines)
             {
                 var cols = ParseCsvLine(line);
@@ -38,6 +39,12 @@ namespace GoriziaUtilidades
                     Archivo = cols[3].Trim(),
                     //LinkPago = cols.Length > 5 ? cols[5].Trim() : ""
                 };
+
+                // Validar que el teléfono tenga exactamente 13 dígitos
+                if (record.Telefono.Length != 13 || !record.Telefono.All(char.IsDigit))
+                {
+                    record.Estado = $"❌ ERROR: Teléfono inválido. Debe tener exactamente 13 dígitos numéricos";
+                }
                 // agregar link de pago al mensaje si existe
                 //if (!string.IsNullOrWhiteSpace(record.LinkPago))
                 //record.Mensaje += "\n💳 Pagar rápido: " + record.LinkPago;
