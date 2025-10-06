@@ -55,12 +55,14 @@ namespace GoriziaUtilidades
 
                     try
                     {
-                        EnviarMensaje(driver, wait, cliente, folder, progreso, navegador);
-
-                        // CORREGIR: Solo marcar OK si el estado no fue ya modificado por errores
                         if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
                         {
-                            cliente.Estado = "OK";
+                            EnviarMensaje(driver, wait, cliente, folder, progreso, navegador);
+                            // CORREGIR: Solo marcar OK si el estado no fue ya modificado por errores
+                            if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
+                            {
+                                cliente.Estado = "OK";
+                            }
                         }
                     }
                     catch (Exception ex)

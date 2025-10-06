@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,12 +14,22 @@ namespace GoriziaUtilidades
             var result = new List<ContactoInfo>();
             var lines = File.ReadAllLines(path, Encoding.GetEncoding(1252))
                             .Where(l => !string.IsNullOrWhiteSpace(l));
-
             foreach (var line in lines)
             {
                 var cols = ParseCsvLine(line);
-                //if (cols.Length < 4) continue;
 
+                // Validar que tenga exactamente 4 columnas
+                if (cols.Length != 4)
+                {
+                    result.Add(new ContactoInfo
+                    {
+                        Telefono = cols.Length > 0 ? cols[0].Trim() : "",
+                        Estado = $"❌ ERROR: Fila mal estructurada. Se esperaban 4 columnas, se encontraron {cols.Length}"
+                    });
+                    continue;
+                }
+
+                //if (cols.Length < 4) continue;
                 var record = new ContactoInfo
                 {
                     Telefono = cols[0].Trim(),
@@ -27,11 +38,9 @@ namespace GoriziaUtilidades
                     Archivo = cols[3].Trim(),
                     //LinkPago = cols.Length > 5 ? cols[5].Trim() : ""
                 };
-
                 // agregar link de pago al mensaje si existe
                 //if (!string.IsNullOrWhiteSpace(record.LinkPago))
-                    //record.Mensaje += "\n💳 Pagar rápido: " + record.LinkPago;
-
+                //record.Mensaje += "\n💳 Pagar rápido: " + record.LinkPago;
                 result.Add(record);
             }
             return result;
