@@ -45,7 +45,7 @@ namespace GoriziaUtilidades
             {
                 char c = line[i];
                 if (c == '"') { inQuotes = !inQuotes; continue; }
-                if (c == ',' && !inQuotes) { parts.Add(sb.ToString()); sb.Clear(); continue; }
+                if (c == ',' && !inQuotes) { parts.Add(sb.ToString()); sb.Clear(); continue;}
                 sb.Append(c);
             }
             parts.Add(sb.ToString());
@@ -62,3 +62,45 @@ namespace GoriziaUtilidades
 
     }
 }
+
+//using System.Collections.Generic;
+//using System.IO;
+//using System.Linq;
+//using System.Text;
+
+//namespace GoriziaUtilidades
+//{
+//    public class CsvParser
+//    {
+//        public static List<ContactoInfo> ParseFile(string path)
+//        {
+//            var result = new List<ContactoInfo>();
+//            var lines = File.ReadAllLines(path, Encoding.GetEncoding(1252))
+//                            .Where(l => !string.IsNullOrWhiteSpace(l));
+
+//            foreach (var line in lines)
+//            {
+//                var cols = line.Split('|'); // Simple split por pipe
+
+//                var record = new ContactoInfo
+//                {
+//                    Telefono = cols[0].Trim(),
+//                    Importe = cols[1].Trim(),
+//                    Mensaje = cols[2].Trim(),
+//                    Archivo = cols[3].Trim()
+//                };
+
+//                result.Add(record);
+//            }
+//            return result;
+//        }
+
+//        public static string EscaparCsv(string campo)
+//        {
+//            if (string.IsNullOrEmpty(campo))
+//                return "\"\"";
+
+//            return "\"" + campo.Replace("\"", "\"\"") + "\"";
+//        }
+//    }
+//}
