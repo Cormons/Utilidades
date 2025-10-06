@@ -28,7 +28,7 @@ namespace GoriziaUtilidades
 
             if (clientes.Count == 0)
             {
-                progreso.Report("⚠️ No hay filas para procesar. Se cancela la ejecución.");
+                progreso.Report("No hay filas para procesar. Se cancela la ejecución.");
                 return;
             }
 
@@ -36,7 +36,7 @@ namespace GoriziaUtilidades
             {
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(120));
 
-                progreso.Report("🔑 Abriendo WhatsApp Web. Si es la primera vez escanea el QR.");
+                progreso.Report("Abriendo WhatsApp Web. Si es la primera vez escanea el QR.");
                 // Esperá hasta 120 segundos a que aparezca y sea visible el cuadro de texto de WhatsApp Web. Si eso pasa antes, seguí; si no, tirá error.
                 //wait.Until(d => d.FindElements(By.XPath("//div[@aria-label='Nuevo chat']")).Count > 0);
                 wait.Until(ExpectedConditions.ElementIsVisible(
@@ -49,7 +49,7 @@ namespace GoriziaUtilidades
                 {
                     if (ct.IsCancellationRequested)
                     {
-                        progreso.Report("⏹️ Cancelado por el usuario.");
+                        progreso.Report("Cancelado por el usuario.");
                         break;
                     }
 
@@ -70,7 +70,7 @@ namespace GoriziaUtilidades
                         // Capturar el error correctamente
                         cliente.Estado = $"ERROR: {ex.Message}";
                         Console.WriteLine(ex.Message);
-                        progreso.Report($"❌ {cliente.Telefono}: {ex.Message}");
+                        progreso.Report($"{cliente.Telefono}: {ex.Message}");
                     }
 
                     processed++;
@@ -93,7 +93,7 @@ namespace GoriziaUtilidades
                         writer.WriteLine(c.Estado);
                     }
                 }
-                progreso.Report($"✅ CSV de resultados generado en: {resultadoCsv}");
+                progreso.Report($"CSV de resultados generado en: {resultadoCsv}");
             }
         }
 
@@ -178,12 +178,12 @@ namespace GoriziaUtilidades
         }
 
         private void EnviarMensaje(
-    IWebDriver driver,
-    WebDriverWait wait,
-    ContactoInfo cliente,
-    string folder,
-    IProgress<string> progreso,
-    string navegador)
+            IWebDriver driver,
+            WebDriverWait wait,
+            ContactoInfo cliente,
+            string folder,
+            IProgress<string> progreso,
+            string navegador)
         {
             // Validar que al menos uno de los dos exista
             bool tieneArchivo = !string.IsNullOrWhiteSpace(cliente.Archivo);
@@ -316,7 +316,7 @@ namespace GoriziaUtilidades
                     catch (WebDriverTimeoutException)
                     {
                         cliente.Estado = "Envío pendiente";
-                        progreso.Report($"⚠️ El envío a {cliente.Telefono} no se confirmó (pendiente).");
+                        progreso.Report($"El envío a {cliente.Telefono} no se confirmó (pendiente).");
                         throw new Exception("Timeout esperando confirmación de envío");
                     }
 
@@ -325,7 +325,7 @@ namespace GoriziaUtilidades
                 catch (Exception ex)
                 {
                     cliente.Estado = $"ERROR: {ex.Message}";
-                    progreso.Report($"❗ Error enviando a {cliente.Telefono}: {ex.Message}");
+                    progreso.Report($"Error enviando a {cliente.Telefono}: {ex.Message}");
                     throw;
                 }
             }
@@ -481,12 +481,12 @@ namespace GoriziaUtilidades
 
                         string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
                                       tieneArchivo ? cliente.Archivo : "mensaje";
-                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
+                        progreso.Report($"Confirmado envío a {cliente.Telefono}: {tipo}");
                     }
                     catch (WebDriverTimeoutException)
                     {
                         cliente.Estado = "Envío pendiente";
-                        progreso.Report($"⚠️ El envío a {cliente.Telefono} no se confirmó (pendiente).");
+                        progreso.Report($"El envío a {cliente.Telefono} no se confirmó (pendiente).");
                         throw new Exception("Timeout esperando confirmación de envío");
                     }
 
@@ -499,7 +499,7 @@ namespace GoriziaUtilidades
                 catch (Exception ex)
                 {
                     cliente.Estado = $"ERROR: {ex.Message}";
-                    progreso.Report($"❗ Error enviando a {cliente.Telefono}: {ex.Message}");
+                    progreso.Report($"Error enviando a {cliente.Telefono}: {ex.Message}");
 
                     // AGREGADO: Cerrar diálogos después de error
                     try

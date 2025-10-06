@@ -17,7 +17,7 @@ namespace GoriziaUtilidades
                 if (args.Length == 0)
                 {
                     //MessageBox.Show("❌ No se recibieron parámetros.\nDebe proporcionar el archivo CSV como argumento.", "DEBUG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    Console.WriteLine("❌ Debe proporcionar el archivo CSV como argumento.");
+                    Console.WriteLine("Debe proporcionar el archivo CSV como argumento.");
                     return 1;
                 }
 
@@ -59,7 +59,7 @@ namespace GoriziaUtilidades
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ ERROR: {ex.Message}");
+                Console.WriteLine($"ERROR: {ex.Message}");
                 //MessageBox.Show($"💥 ERROR en Main:\n{ex.Message}", "DEBUG", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 1;
             }

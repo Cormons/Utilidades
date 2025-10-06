@@ -25,7 +25,7 @@ namespace GoriziaUtilidades
                     result.Add(new ContactoInfo
                     {
                         Telefono = cols.Length > 0 ? cols[0].Trim() : "",
-                        Estado = $"❌ ERROR: Fila mal estructurada. Se esperaban 4 columnas, se encontraron {cols.Length}"
+                        Estado = $"ERROR: Fila mal estructurada. Se esperaban 4 columnas, se encontraron {cols.Length}"
                     });
                     continue;
                 }
@@ -43,7 +43,7 @@ namespace GoriziaUtilidades
                 // Validar que el teléfono tenga exactamente 13 dígitos
                 if (record.Telefono.Length != 13 || !record.Telefono.All(char.IsDigit))
                 {
-                    record.Estado = $"❌ ERROR: Teléfono inválido. Debe tener exactamente 13 dígitos numéricos";
+                    record.Estado = $"ERROR: Teléfono inválido. Debe tener exactamente 13 dígitos numéricos";
                 }
                 // agregar link de pago al mensaje si existe
                 //if (!string.IsNullOrWhiteSpace(record.LinkPago))
