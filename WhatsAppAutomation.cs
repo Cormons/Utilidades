@@ -307,7 +307,7 @@ namespace GoriziaUtilidades
                     {
                         new WebDriverWait(driver, TimeSpan.FromSeconds(90))
                             .Until(d => d.FindElements(By.CssSelector(
-                                "span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
+                                "span[data-icon='msg-check']")).Count > 0);
 
                         string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
                                       tieneArchivo ? cliente.Archivo : "mensaje";
@@ -477,7 +477,7 @@ namespace GoriziaUtilidades
                     {
                         new WebDriverWait(driver, TimeSpan.FromSeconds(120))
                             .Until(d => d.FindElements(By.CssSelector(
-                                "span[data-icon='msg-check'], span[data-icon='msg-dblcheck']")).Count > 0);
+                                "span[data-icon='msg-check']")).Count > 0);
 
                         string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
                                       tieneArchivo ? cliente.Archivo : "mensaje";
