@@ -331,7 +331,7 @@ namespace GoriziaUtilidades
                         Thread.Sleep(tiempoConfirmacion * 1000); 
                         progreso.Report($"✅ Tiempo de espera cumplido para {cliente.Telefono}");
                     }
-                    Thread.Sleep(3000);
+                    Thread.Sleep(2000);
                 }
                 catch (Exception ex)
                 {
@@ -483,22 +483,35 @@ namespace GoriziaUtilidades
                     }
 
                     // Confirmación de envío
+                    // Confirmación de envío
                     progreso.Report("Paso 6: Confirmando envío");
-                    try
-                    {
-                        new WebDriverWait(driver, TimeSpan.FromSeconds(120))
-                            .Until(d => d.FindElements(By.CssSelector(
-                                "span[data-icon='msg-check']")).Count > 0);
 
-                        string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
-                                      tieneArchivo ? cliente.Archivo : "mensaje";
-                        progreso.Report($"Confirmado envío a {cliente.Telefono}: {tipo}");
-                    }
-                    catch (WebDriverTimeoutException)
+                    if (tiempoConfirmacion == 0)
                     {
-                        cliente.Estado = "Envío pendiente";
-                        progreso.Report($"El envío a {cliente.Telefono} no se confirmó (pendiente).");
-                        throw new Exception("Timeout esperando confirmación de envío");
+                        // 🔹 Modo automático: Esperar hasta ver el tilde
+                        try
+                        {
+                            new WebDriverWait(driver, TimeSpan.FromSeconds(120))
+                                .Until(d => d.FindElements(By.CssSelector(
+                                    "span[data-icon='msg-check']")).Count > 0);
+
+                            string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
+                                          tieneArchivo ? cliente.Archivo : "mensaje";
+                            progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
+                        }
+                        catch (WebDriverTimeoutException)
+                        {
+                            cliente.Estado = "Envío pendiente";
+                            progreso.Report($"El envío a {cliente.Telefono} no se confirmó (pendiente).");
+                            throw new Exception("Timeout esperando confirmación de envío");
+                        }
+                    }
+                    else
+                    {
+                        // 🔹 Modo manual: Esperar X segundos sin validar
+                        progreso.Report($"⏳ Esperando {tiempoConfirmacion} segundos...");
+                        Thread.Sleep(tiempoConfirmacion * 1000);
+                        progreso.Report($"✅ Tiempo de espera cumplido para {cliente.Telefono}");
                     }
 
                     Thread.Sleep(3000);
