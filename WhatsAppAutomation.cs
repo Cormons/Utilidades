@@ -18,7 +18,7 @@ namespace GoriziaUtilidades
 {
     public class WhatsAppAutomation
     {
-        public void Run(string csvFile, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct, string navegador = "c")
+        public void Run(string csvFile, IProgress<string> progreso, IProgress<int> progressBar, CancellationToken ct, string navegador = "c", int tiempoConfirmacion = 0)
         {
             if (!File.Exists(csvFile))
                 throw new FileNotFoundException("No se encontró el archivo CSV", csvFile);
@@ -57,7 +57,7 @@ namespace GoriziaUtilidades
                     {
                         if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
                         {
-                            EnviarMensaje(driver, wait, cliente, folder, progreso, navegador);
+                            EnviarMensaje(driver, wait, cliente, folder, progreso, navegador, tiempoConfirmacion);
                             // CORREGIR: Solo marcar OK si el estado no fue ya modificado por errores
                             if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
                             {
@@ -183,7 +183,8 @@ namespace GoriziaUtilidades
             ContactoInfo cliente,
             string folder,
             IProgress<string> progreso,
-            string navegador)
+            string navegador,
+            int tiempoConfirmacion)
         {
             // Validar que al menos uno de los dos exista
             bool tieneArchivo = !string.IsNullOrWhiteSpace(cliente.Archivo);
@@ -303,23 +304,33 @@ namespace GoriziaUtilidades
                     }
 
                     progreso.Report("Paso 6: Confirmando envío");
-                    try
-                    {
-                        new WebDriverWait(driver, TimeSpan.FromSeconds(90))
-                            .Until(d => d.FindElements(By.CssSelector(
-                                "span[data-icon='msg-check']")).Count > 0);
 
-                        string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
-                                      tieneArchivo ? cliente.Archivo : "mensaje";
-                        progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
-                    }
-                    catch (WebDriverTimeoutException)
+                    if (tiempoConfirmacion == 0)
                     {
-                        cliente.Estado = "Envío pendiente";
-                        progreso.Report($"El envío a {cliente.Telefono} no se confirmó (pendiente).");
-                        throw new Exception("Timeout esperando confirmación de envío");
-                    }
+                        try
+                        {
+                            new WebDriverWait(driver, TimeSpan.FromSeconds(90))
+                                .Until(d => d.FindElements(By.CssSelector(
+                                    "span[data-icon='msg-check']")).Count > 0);
 
+                            string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
+                                          tieneArchivo ? cliente.Archivo : "mensaje";
+                            progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
+                        }
+                        catch (WebDriverTimeoutException)
+                        {
+                            cliente.Estado = "Envío pendiente";
+                            progreso.Report($"El envío a {cliente.Telefono} no se confirmó (pendiente).");
+                            throw new Exception("Timeout esperando confirmación de envío");
+                        }
+                    }
+                    else
+                    {
+                        // 🔹 Modo nuevo: Esperar X segundos sin validar
+                        progreso.Report($"⏳ Esperando {tiempoConfirmacion} segundos...");
+                        Thread.Sleep(tiempoConfirmacion * 1000); 
+                        progreso.Report($"✅ Tiempo de espera cumplido para {cliente.Telefono}");
+                    }
                     Thread.Sleep(3000);
                 }
                 catch (Exception ex)
