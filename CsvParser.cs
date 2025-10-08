@@ -12,8 +12,7 @@ namespace GoriziaUtilidades
         public static List<ContactoInfo> ParseFile(string path)
         {
             var result = new List<ContactoInfo>();
-            var lines = File.ReadAllLines(path, Encoding.GetEncoding(1252))
-                            .Where(l => !string.IsNullOrWhiteSpace(l));
+            var lines = File.ReadAllLines(path, Encoding.GetEncoding(1252)); 
 
             foreach (var line in lines)
             {

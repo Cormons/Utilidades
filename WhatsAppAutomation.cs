@@ -55,11 +55,11 @@ namespace GoriziaUtilidades
 
                     try
                     {
-                        if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
+                        if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("ERROR"))
                         {
                             EnviarMensaje(driver, wait, cliente, folder, progreso, navegador, tiempoConfirmacion);
                             // CORREGIR: Solo marcar OK si el estado no fue ya modificado por errores
-                            if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("❌"))
+                            if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("ERROR"))
                             {
                                 cliente.Estado = "OK";
                             }
@@ -309,7 +309,7 @@ namespace GoriziaUtilidades
                     {
                         try
                         {
-                            new WebDriverWait(driver, TimeSpan.FromSeconds(90))
+                            new WebDriverWait(driver, TimeSpan.FromSeconds(10))
                                 .Until(d => d.FindElements(By.CssSelector(
                                     "span[data-icon='msg-check']")).Count > 0);
 
