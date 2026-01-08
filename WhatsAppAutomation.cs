@@ -285,6 +285,9 @@ namespace GoriziaUtilidades
                         actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
                         Thread.Sleep(500);
 
+                        actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+                        Thread.Sleep(500);
+
                         var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
                         inputFile.SendKeys(archivoPath);
                         Thread.Sleep(2000);
