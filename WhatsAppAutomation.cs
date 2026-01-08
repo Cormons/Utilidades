@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using WebDriverManager;
 using WebDriverManager.DriverConfigs.Impl;
+using WinForms = System.Windows.Forms;
 
 namespace GoriziaUtilidades
 {
@@ -285,12 +286,28 @@ namespace GoriziaUtilidades
                         actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
                         Thread.Sleep(500);
 
+
+                        // Ir a "Documentos"
+                        actions.SendKeys(OpenQA.Selenium.Keys.ArrowDown).Perform();
+                        Thread.Sleep(300);
                         actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+
+                        // Esperar a que se abra el explorador
+                        Thread.Sleep(2000);
+
+                        // ✅ Escribir la ruta usando Windows Forms SendKeys
+                        WinForms.SendKeys.SendWait(archivoPath);
                         Thread.Sleep(500);
 
-                        var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
-                        inputFile.SendKeys(archivoPath);
+                        // Presionar Enter
+                        WinForms.SendKeys.SendWait("{ENTER}");
                         Thread.Sleep(2000);
+
+                        progreso.Report("Paso 5: Enviando archivo");
+
+                        //var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
+                        //inputFile.SendKeys(archivoPath);
+                        //Thread.Sleep(2000);
 
                         progreso.Report("Paso 5: Enviando archivo");
                         var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
@@ -461,8 +478,26 @@ namespace GoriziaUtilidades
                         actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
                         Thread.Sleep(500);
 
-                        var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
-                        inputFile.SendKeys(archivoPath);
+                        // Ir a "Documentos"
+                        actions.SendKeys(OpenQA.Selenium.Keys.ArrowDown).Perform();
+                        Thread.Sleep(300);
+                        actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+
+                        // Esperar a que se abra el explorador
+                        Thread.Sleep(2000);
+
+                        // ✅ Escribir la ruta usando Windows Forms SendKeys
+                        WinForms.SendKeys.SendWait(archivoPath);
+                        Thread.Sleep(500);
+
+                        // Presionar Enter
+                        WinForms.SendKeys.SendWait("{ENTER}");
+                        Thread.Sleep(2000);
+
+                        progreso.Report("Paso 5: Enviando archivo");
+
+                        //var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
+                        //inputFile.SendKeys(archivoPath);
 
                         wait.Until(d =>
                         {
