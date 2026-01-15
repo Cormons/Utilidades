@@ -286,7 +286,6 @@ namespace GoriziaUtilidades
                         actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
                         Thread.Sleep(500);
 
-
                         // Ir a "Documentos"
                         actions.SendKeys(OpenQA.Selenium.Keys.ArrowDown).Perform();
                         Thread.Sleep(300);
@@ -295,8 +294,18 @@ namespace GoriziaUtilidades
                         // Esperar a que se abra el explorador
                         Thread.Sleep(2000);
 
-                        // ✅ Escribir la ruta usando Windows Forms SendKeys
-                        WinForms.SendKeys.SendWait(archivoPath);
+                        // ✅ CAMBIO: Escapar caracteres especiales para SendKeys
+                        string rutaEscapada = archivoPath
+                            .Replace("{", "{{}")
+                            .Replace("}", "{}}")
+                            .Replace("(", "{(}")
+                            .Replace(")", "{)}")
+                            .Replace("+", "{+}")
+                            .Replace("^", "{^}")
+                            .Replace("%", "{%}")
+                            .Replace("~", "{~}");
+
+                        WinForms.SendKeys.SendWait(rutaEscapada);
                         Thread.Sleep(500);
 
                         // Presionar Enter
@@ -305,11 +314,6 @@ namespace GoriziaUtilidades
 
                         progreso.Report("Paso 5: Enviando archivo");
 
-                        //var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
-                        //inputFile.SendKeys(archivoPath);
-                        //Thread.Sleep(2000);
-
-                        progreso.Report("Paso 5: Enviando archivo");
                         var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
                             By.XPath("//div[@aria-label='Enviar']")));
                         enviar.Click();
@@ -348,7 +352,7 @@ namespace GoriziaUtilidades
                     {
                         // 🔹 Modo nuevo: Esperar X segundos sin validar
                         progreso.Report($"⏳ Esperando {tiempoConfirmacion} segundos...");
-                        Thread.Sleep(tiempoConfirmacion * 1000); 
+                        Thread.Sleep(tiempoConfirmacion * 1000);
                         progreso.Report($"✅ Tiempo de espera cumplido para {cliente.Telefono}");
                     }
                     Thread.Sleep(2000);
@@ -360,7 +364,6 @@ namespace GoriziaUtilidades
                     throw;
                 }
             }
-
             else // Firefox
             {
                 var actions = new Actions(driver);
@@ -486,8 +489,18 @@ namespace GoriziaUtilidades
                         // Esperar a que se abra el explorador
                         Thread.Sleep(2000);
 
-                        // ✅ Escribir la ruta usando Windows Forms SendKeys
-                        WinForms.SendKeys.SendWait(archivoPath);
+                        // ✅ CAMBIO: Escapar caracteres especiales para SendKeys
+                        string rutaEscapada = archivoPath
+                            .Replace("{", "{{}")
+                            .Replace("}", "{}}")
+                            .Replace("(", "{(}")
+                            .Replace(")", "{)}")
+                            .Replace("+", "{+}")
+                            .Replace("^", "{^}")
+                            .Replace("%", "{%}")
+                            .Replace("~", "{~}");
+
+                        WinForms.SendKeys.SendWait(rutaEscapada);
                         Thread.Sleep(500);
 
                         // Presionar Enter
@@ -495,9 +508,6 @@ namespace GoriziaUtilidades
                         Thread.Sleep(2000);
 
                         progreso.Report("Paso 5: Enviando archivo");
-
-                        //var inputFile = wait.Until(d => d.FindElement(By.CssSelector("input[type='file']")));
-                        //inputFile.SendKeys(archivoPath);
 
                         wait.Until(d =>
                         {
@@ -520,7 +530,6 @@ namespace GoriziaUtilidades
                         inputText.SendKeys(Keys.Enter);
                     }
 
-                    // Confirmación de envío
                     // Confirmación de envío
                     progreso.Report("Paso 6: Confirmando envío");
 
