@@ -25,13 +25,13 @@ namespace GoriziaUtilidades
                 // Navegador (parámetro 2)
                 string navegador = args.Length >= 2 ? args[1].Trim().ToLower() : "c";
 
-                // 🆕 Tiempo de confirmación (parámetro 3)
+                // Tiempo de confirmación (parámetro 3)
                 int tiempoConfirmacion = 0; // Default: esperar tilde
                 if (args.Length >= 3)
                 {
                     if (!int.TryParse(args[2], out tiempoConfirmacion) || tiempoConfirmacion < 0)
                     {
-                        Console.WriteLine("⚠️ Tiempo de confirmación inválido, usando default (0 = esperar tilde)");
+                        Console.WriteLine("Tiempo de confirmación inválido, usando default (0 = esperar tilde)");
                         tiempoConfirmacion = 0;
                     }
                 }
