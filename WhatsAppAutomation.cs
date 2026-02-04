@@ -123,7 +123,7 @@ namespace GoriziaUtilidades
                     chromeService.HideCommandPromptWindow = true;
                     chromeService.SuppressInitialDiagnosticInformation = true;
 
-                    progreso.Report("🚀 Iniciando navegador Chrome...");
+                    progreso.Report("Iniciando navegador Chrome...");
                     driver = new ChromeDriver(chromeService, chromeOptions);
                     break;
 
@@ -147,7 +147,7 @@ namespace GoriziaUtilidades
                     ffService.HideCommandPromptWindow = true;
                     ffService.SuppressInitialDiagnosticInformation = true;
 
-                    progreso.Report("🚀 Iniciando navegador Firefox...");
+                    progreso.Report("  Iniciando navegador Firefox...");
                     driver = new FirefoxDriver(ffService, ffOptions);
                     break;
 
@@ -164,7 +164,7 @@ namespace GoriziaUtilidades
                     edgeService.HideCommandPromptWindow = true;
                     edgeService.SuppressInitialDiagnosticInformation = true;
 
-                    progreso.Report("🚀 Iniciando navegador Edge...");
+                    progreso.Report("  Iniciando navegador Edge...");
                     driver = new EdgeDriver(edgeService, edgeOptions);
                     break;
 
@@ -221,7 +221,7 @@ namespace GoriziaUtilidades
                     actions.MoveToElement(searchBox).Click().Perform();
                     Thread.Sleep(500);
 
-                    // ✅ Navegar con teclado a Nuevo Chat
+                    //  Navegar con teclado a Nuevo Chat
                     actions.KeyDown(Keys.Shift).SendKeys(Keys.Tab).KeyUp(Keys.Shift).Perform();
                     Thread.Sleep(300);
 
@@ -294,7 +294,7 @@ namespace GoriziaUtilidades
                         // Esperar a que se abra el explorador
                         Thread.Sleep(2000);
 
-                        // ✅ CAMBIO: Escapar caracteres especiales para SendKeys
+                        //   CAMBIO: Escapar caracteres especiales para SendKeys
                         string rutaEscapada = archivoPath
                             .Replace("{", "{{}")
                             .Replace("}", "{}}")
@@ -339,7 +339,7 @@ namespace GoriziaUtilidades
 
                             string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
                                           tieneArchivo ? cliente.Archivo : "mensaje";
-                            progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
+                            progreso.Report($"  Confirmado envío a {cliente.Telefono}: {tipo}");
                         }
                         catch (WebDriverTimeoutException)
                         {
@@ -350,10 +350,10 @@ namespace GoriziaUtilidades
                     }
                     else
                     {
-                        // 🔹 Modo nuevo: Esperar X segundos sin validar
-                        progreso.Report($"⏳ Esperando {tiempoConfirmacion} segundos...");
+                        //  Modo nuevo: Esperar X segundos sin validar
+                        progreso.Report($"  Esperando {tiempoConfirmacion} segundos...");
                         Thread.Sleep(tiempoConfirmacion * 1000);
-                        progreso.Report($"✅ Tiempo de espera cumplido para {cliente.Telefono}");
+                        progreso.Report($"  Tiempo de espera cumplido para {cliente.Telefono}");
                     }
                     Thread.Sleep(2000);
                 }
@@ -489,7 +489,7 @@ namespace GoriziaUtilidades
                         // Esperar a que se abra el explorador
                         Thread.Sleep(2000);
 
-                        // ✅ CAMBIO: Escapar caracteres especiales para SendKeys
+                        //   CAMBIO: Escapar caracteres especiales para SendKeys
                         string rutaEscapada = archivoPath
                             .Replace("{", "{{}")
                             .Replace("}", "{}}")
@@ -535,7 +535,7 @@ namespace GoriziaUtilidades
 
                     if (tiempoConfirmacion == 0)
                     {
-                        // 🔹 Modo automático: Esperar hasta ver el tilde
+                        //   Modo automático: Esperar hasta ver el tilde
                         try
                         {
                             new WebDriverWait(driver, TimeSpan.FromSeconds(120))
@@ -544,7 +544,7 @@ namespace GoriziaUtilidades
 
                             string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
                                           tieneArchivo ? cliente.Archivo : "mensaje";
-                            progreso.Report($"✅ Confirmado envío a {cliente.Telefono}: {tipo}");
+                            progreso.Report($"  Confirmado envío a {cliente.Telefono}: {tipo}");
                         }
                         catch (WebDriverTimeoutException)
                         {
@@ -555,10 +555,10 @@ namespace GoriziaUtilidades
                     }
                     else
                     {
-                        // 🔹 Modo manual: Esperar X segundos sin validar
-                        progreso.Report($"⏳ Esperando {tiempoConfirmacion} segundos...");
+                        //   Modo manual: Esperar X segundos sin validar
+                        progreso.Report($" Esperando {tiempoConfirmacion} segundos...");
                         Thread.Sleep(tiempoConfirmacion * 1000);
-                        progreso.Report($"✅ Tiempo de espera cumplido para {cliente.Telefono}");
+                        progreso.Report($"  Tiempo de espera cumplido para {cliente.Telefono}");
                     }
 
                     Thread.Sleep(3000);
