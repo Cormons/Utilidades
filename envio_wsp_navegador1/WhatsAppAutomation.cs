@@ -49,8 +49,7 @@ namespace GoriziaEnviadorUnitario
                 // Intenta esto para ver si al menos carga la página base
                 wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
                 progreso.Report("Abriendo WhatsApp Web. Si es la primera vez escanea el QR.");
-                wait.Until(ExpectedConditions.ElementIsVisible(
-                    By.CssSelector("div[role='textbox'][contenteditable='true']")));
+                EsperarWhatsAppListo(driver, progreso, navegador);
 
                 int total = clientes.Count;
                 int processed = 0;
@@ -205,6 +204,39 @@ namespace GoriziaEnviadorUnitario
             driver.Navigate().GoToUrl("https://web.whatsapp.com");
 
             return driver;
+        }
+
+        private void EsperarWhatsAppListo(IWebDriver driver, IProgress<string> progreso, string navegador)
+        {
+            var waitShort = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
+            var waitChat = new WebDriverWait(driver, TimeSpan.FromSeconds(180));
+
+            Func<IWebDriver, IWebElement> buscarInput = d =>
+                d.FindElements(By.CssSelector("div[role='textbox'][contenteditable='true']"))
+                 .FirstOrDefault(e => e.Displayed);
+
+            Func<IWebDriver, bool> hayQr = d =>
+                d.FindElements(By.CssSelector("canvas, [data-testid='qrcode'], [aria-label*='QR'], [aria-label*='Scan'], [aria-label*='Escanea']"))
+                 .Any(e => e.Displayed);
+
+            // Intento rápido: ya está logueado
+            try
+            {
+                var input = waitShort.Until(buscarInput);
+                if (input != null) return;
+            }
+            catch (WebDriverTimeoutException) { }
+
+            // Si aparece QR, pedir escaneo y esperar chat
+            if (hayQr(driver))
+            {
+                progreso.Report("QR detectado. Esperando que se inicie sesión...");
+                waitChat.Until(buscarInput);
+                return;
+            }
+
+            // Fallback: esperar chat de todos modos
+            waitChat.Until(buscarInput);
         }
 
         private void EnviarMensaje(
@@ -400,71 +432,74 @@ namespace GoriziaEnviadorUnitario
                 try
                 {
                     progreso.Report("Paso 1: Buscar contacto");
+                    IWebElement inputBusqueda = null;
 
-                    // Posicionarse en el cuadro de búsqueda principal
-                    var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(
-                        By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
-
-                    searchBox.Click();
-                    Thread.Sleep(500);
-
-                    // Asegurar foco con Actions antes de navegar
-                    actions.MoveToElement(searchBox).Click().Perform();
-                    Thread.Sleep(300);
-
-                    // Navegar: Shift+Tab, Tab (para llegar a Nuevo Chat)
-                    actions.KeyDown(Keys.Shift).SendKeys(Keys.Tab).KeyUp(Keys.Shift).Perform();
-                    Thread.Sleep(300);
-
-                    actions.KeyDown(Keys.Shift).SendKeys(Keys.Tab).KeyUp(Keys.Shift).Perform();
-                    Thread.Sleep(300);
-
-                    // Enter para abrir diálogo Nuevo Chat
-                    actions.SendKeys(Keys.Enter).Perform();
-                    Thread.Sleep(1000);
-
-                    // Esperar el input de búsqueda del diálogo
-                    var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(
-                        By.XPath("//div[@contenteditable='true' and @role='textbox']")));
-
-                    // Asegurar foco en el input de búsqueda
-                    actions.MoveToElement(inputBusqueda).Click().Perform();
-                    Thread.Sleep(300);
-
-                    inputBusqueda.SendKeys(Keys.Control + "a");
-                    inputBusqueda.SendKeys(Keys.Backspace);
-                    Thread.Sleep(300);
-
-                    // Escribir número carácter por carácter
-                    foreach (char c in cliente.Telefono)
-                    {
-                        inputBusqueda.SendKeys(c.ToString());
-                        Thread.Sleep(50);
-                    }
-                    Thread.Sleep(2500);
-
-                    // Verificar con timeout si aparece "No se encontraron"
+                    // Intento 1: atajo Ctrl+K para abrir búsqueda (más confiable en Firefox)
                     try
                     {
-                        var resultados = new WebDriverWait(driver, TimeSpan.FromSeconds(3))
-                            .Until(d => d.FindElements(By.XPath(
-                                "//span[contains(text(), 'No se encontraron resultados')]")));
-
-                        if (resultados.Count > 0)
-                        {
-                            cliente.Estado = $"Número inválido: {cliente.Telefono}";
-                            progreso.Report(cliente.Estado);
-                            throw new Exception($"Número inválido: {cliente.Telefono}");
-                        }
+                        actions.KeyDown(Keys.Control).SendKeys("k").KeyUp(Keys.Control).Perform();
+                        progreso.Report("Atajo enviado, localizando cuadro de búsqueda...");
+                        inputBusqueda = new WebDriverWait(driver, TimeSpan.FromSeconds(10))
+                            .Until(d =>
+                            {
+                                var candidatos = d.FindElements(By.CssSelector(
+                                    "div[role='dialog'] div[role='textbox'][contenteditable='true'], " +
+                                    "div[role='textbox'][contenteditable='true']"));
+                                return candidatos.FirstOrDefault(e => e.Displayed);
+                            });
                     }
                     catch (WebDriverTimeoutException)
                     {
-                        // Si no apareció el mensaje de error, continuar
+                        inputBusqueda = null;
                     }
 
-                    // Presionar Enter para abrir el chat
-                    inputBusqueda.SendKeys(Keys.Enter);
-                    Thread.Sleep(1000);
+                    if (inputBusqueda == null)
+                    {
+                        // Fallback: abrir chat por URL directa
+                        progreso.Report("No se detectó el cuadro de búsqueda. Probando por URL directa...");
+                        driver.Navigate().GoToUrl($"https://web.whatsapp.com/send?phone={cliente.Telefono}");
+                    }
+                    else
+                    {
+                        // Asegurar foco en el input de búsqueda
+                        actions.MoveToElement(inputBusqueda).Click().Perform();
+                        Thread.Sleep(300);
+
+                        inputBusqueda.SendKeys(Keys.Control + "a");
+                        inputBusqueda.SendKeys(Keys.Backspace);
+                        Thread.Sleep(300);
+
+                        // Escribir número carácter por carácter
+                        foreach (char c in cliente.Telefono)
+                        {
+                            inputBusqueda.SendKeys(c.ToString());
+                            Thread.Sleep(50);
+                        }
+                        Thread.Sleep(2500);
+
+                        // Verificar con timeout si aparece "No se encontraron"
+                        try
+                        {
+                            var resultados = new WebDriverWait(driver, TimeSpan.FromSeconds(3))
+                                .Until(d => d.FindElements(By.XPath(
+                                    "//span[contains(text(), 'No se encontraron resultados')]")));
+
+                            if (resultados.Count > 0)
+                            {
+                                cliente.Estado = $"Número inválido: {cliente.Telefono}";
+                                progreso.Report(cliente.Estado);
+                                throw new Exception($"Número inválido: {cliente.Telefono}");
+                            }
+                        }
+                        catch (WebDriverTimeoutException)
+                        {
+                            // Si no apareció el mensaje de error, continuar
+                        }
+
+                        // Presionar Enter para abrir el chat
+                        inputBusqueda.SendKeys(Keys.Enter);
+                        Thread.Sleep(1000);
+                    }
 
                     // Esperar apertura de chat (verificar que sí se abrió)
                     progreso.Report("Paso 2: Esperando apertura de chat");
@@ -475,10 +510,18 @@ namespace GoriziaEnviadorUnitario
                     }
                     catch (WebDriverTimeoutException)
                     {
-                        // Si no se abrió el chat, el número no existe
-                        cliente.Estado = $"Número inválido: {cliente.Telefono}";
-                        progreso.Report(cliente.Estado);
-                        throw new Exception($"Número inválido: {cliente.Telefono}");
+                        // Si no se abrió el chat, validar si es número inválido
+                        var invalid = driver.FindElements(By.XPath(
+                            "//*[contains(text(), 'número de teléfono') or contains(text(), 'Phone number')]"));
+                        if (invalid.Count > 0)
+                        {
+                            cliente.Estado = $"Número inválido: {cliente.Telefono}";
+                            progreso.Report(cliente.Estado);
+                            throw new Exception($"Número inválido: {cliente.Telefono}");
+                        }
+
+                        // Si llegamos acá, solo reportar el timeout
+                        throw;
                     }
 
                     Thread.Sleep(2000);
