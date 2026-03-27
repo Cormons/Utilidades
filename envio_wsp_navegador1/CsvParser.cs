@@ -4,8 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-
-namespace GoriziaUtilidades
+namespace GoriziaEnviadorUnitario
 {
     public class CsvParser
     {
@@ -29,7 +28,9 @@ namespace GoriziaUtilidades
                     continue;
                 }
 
-                //if (cols.Length < 4) continue;
+                // NOTA: La columna 'Importe' (cols[1]) se parsea y se asigna a ContactoInfo.Importe.
+                // Actualmente NO se utiliza en el flujo de envío de mensajes (no se inserta en `Mensaje` ni se envía).
+                // Queda disponible para futuras mejoras (ej.: reemplazar un placeholder {importe} en el mensaje).
                 var record = new ContactoInfo
                 {
                     Telefono = cols[0].Trim(),
