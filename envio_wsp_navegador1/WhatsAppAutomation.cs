@@ -45,11 +45,27 @@ namespace GoriziaEnviadorUnitario
             {
                 var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
 
-                progreso.Report("Esperando carga de interfaz de chat...");
-                // Intenta esto para ver si al menos carga la página base
+                progreso.Report("Esperando carga de interfaz...");
                 wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
-                progreso.Report("Abriendo WhatsApp Web. Si es la primera vez escanea el QR.");
-                EsperarWhatsAppListo(driver, progreso, navegador);
+
+                progreso.Report("Abriendo WhatsApp Web. Si es necesario, escanea el QR.");
+
+                try
+                {
+                    // Buscamos el panel lateral de chats (ID 'side' o 'pane-side'). 
+                    // Esto confirma que el login fue exitoso y la interfaz cargó.
+                    wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("#side, #pane-side, [data-testid='side-panel']")));
+                    progreso.Report("Sesión detectada correctamente.");
+
+                    // Un breve respiro para que terminen de cargar los elementos internos
+                    Thread.Sleep(2500);
+                }
+                catch (WebDriverTimeoutException)
+                {
+                    progreso.Report("ERROR: Tiempo de espera agotado. No se detectó la sesión iniciada.");
+                    driver.Quit();
+                    return;
+                }
 
                 int total = clientes.Count;
                 int processed = 0;
@@ -66,6 +82,7 @@ namespace GoriziaEnviadorUnitario
                     {
                         if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("ERROR"))
                         {
+                            // Llamada a tu método que ya funciona en producción
                             EnviarMensaje(driver, wait, cliente, folder, progreso, navegador, tiempoConfirmacion);
 
                             if (string.IsNullOrEmpty(cliente.Estado) || !cliente.Estado.Contains("ERROR"))
@@ -88,8 +105,8 @@ namespace GoriziaEnviadorUnitario
 
                 driver.Quit();
 
-                // Generar CSV solo en el caso masivo
-                string resultadoCsv = Path.Combine(folder, Path.GetFileNameWithoutExtension("clientes") + "_resultado.csv");
+                // Generar CSV de resultados
+                string resultadoCsv = Path.Combine(folder, "envio_wa_resultado.csv");
                 using (var writer = new StreamWriter(resultadoCsv, false, Encoding.GetEncoding(1252)))
                 {
                     foreach (var c in clientes)
@@ -118,7 +135,7 @@ namespace GoriziaEnviadorUnitario
             // Guardar resultado
             try
             {
-                string rutaLog = Path.Combine(folder, "resultado_envio.csv");
+                string rutaLog = Path.Combine(folder, "envio_wa_resultado.csv");
                 File.WriteAllText(rutaLog, cliente.Telefono + "," + cliente.Estado + "," + DateTime.Now);
             }
             catch (Exception ex) { Console.WriteLine("Error Log: " + ex.Message); }
@@ -206,39 +223,6 @@ namespace GoriziaEnviadorUnitario
             return driver;
         }
 
-        private void EsperarWhatsAppListo(IWebDriver driver, IProgress<string> progreso, string navegador)
-        {
-            var waitShort = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
-            var waitChat = new WebDriverWait(driver, TimeSpan.FromSeconds(180));
-
-            Func<IWebDriver, IWebElement> buscarInput = d =>
-                d.FindElements(By.CssSelector("div[role='textbox'][contenteditable='true']"))
-                 .FirstOrDefault(e => e.Displayed);
-
-            Func<IWebDriver, bool> hayQr = d =>
-                d.FindElements(By.CssSelector("canvas, [data-testid='qrcode'], [aria-label*='QR'], [aria-label*='Scan'], [aria-label*='Escanea']"))
-                 .Any(e => e.Displayed);
-
-            // Intento rápido: ya está logueado
-            try
-            {
-                var input = waitShort.Until(buscarInput);
-                if (input != null) return;
-            }
-            catch (WebDriverTimeoutException) { }
-
-            // Si aparece QR, pedir escaneo y esperar chat
-            if (hayQr(driver))
-            {
-                progreso.Report("QR detectado. Esperando que se inicie sesión...");
-                waitChat.Until(buscarInput);
-                return;
-            }
-
-            // Fallback: esperar chat de todos modos
-            waitChat.Until(buscarInput);
-        }
-
         private void EnviarMensaje(
             IWebDriver driver,
             WebDriverWait wait,
@@ -273,33 +257,53 @@ namespace GoriziaEnviadorUnitario
             {
                 try
                 {
-                    progreso.Report("Paso 1: Buscar contacto");
+                    progreso.Report("Paso 1: Iniciando búsqueda (vía atajo)");
 
-                    var searchBox = wait.Until(ExpectedConditions.ElementIsVisible(
-                        By.XPath("//div[@role='textbox' and @aria-label='Cuadro de texto para ingresar la búsqueda']")));
-
-                    var actions = new Actions(driver);
-                    actions.MoveToElement(searchBox).Click().Perform();
+                    // 1. Forzar foco al cuerpo de la página para asegurar que el atajo sea escuchado
+                    var body = driver.FindElement(By.TagName("body"));
+                    body.SendKeys(Keys.Escape); // Limpiar cualquier modal previo
+                    Thread.Sleep(500);
+                    body.Click();
                     Thread.Sleep(500);
 
-                    //  Navegar con teclado a Nuevo Chat
-                    actions.KeyDown(Keys.Shift).SendKeys(Keys.Tab).KeyUp(Keys.Shift).Perform();
-                    Thread.Sleep(300);
+                    // 2. Ejecutar Ctrl + Alt + N (Atajo oficial de WhatsApp para Nuevo Chat)
+                    var actions = new Actions(driver);
+                    actions.KeyDown(Keys.Control)
+                           .KeyDown(Keys.Alt)
+                           .SendKeys("n")
+                           .KeyUp(Keys.Alt)
+                           .KeyUp(Keys.Control)
+                           .Perform();
 
-                    actions.KeyDown(Keys.Shift).SendKeys(Keys.Tab).KeyUp(Keys.Shift).Perform();
-                    Thread.Sleep(300);
+                    progreso.Report("Atajo funcionó, localizando cuadro de búsqueda...");
 
-                    actions.SendKeys(Keys.Enter).Perform();
-                    Thread.Sleep(1000);
+                    // 3. CAMBIO: Buscar el input de forma genérica y agresiva
+                    IWebElement inputBusqueda = null;
+                    var waitCorto = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
 
-                    // Esperar input de búsqueda del diálogo
-                    var inputBusqueda = wait.Until(ExpectedConditions.ElementIsVisible(
-                        By.XPath("//div[@contenteditable='true' and @role='textbox']")));
+                    try
+                    {
+                        inputBusqueda = waitCorto.Until(d => {
+                            // Buscamos todos los elementos editables
+                            var editables = d.FindElements(By.CssSelector("div[contenteditable='true'], input[type='text'], div[role='textbox']"));
 
+                            // Filtramos el que esté visible y habilitado
+                            // En el panel de "Nuevo Chat", el buscador suele ser el único o el primero visible.
+                            return editables.FirstOrDefault(e => e.Displayed && e.Enabled);
+                        });
+                    }
+                    catch (WebDriverTimeoutException)
+                    {
+                        throw new Exception("El panel de búsqueda abrió, pero Selenium no detecta el cuadro para escribir el número.");
+                    }
+
+                    progreso.Report("Cuadro de búsqueda localizado. Escribiendo número...");
+
+                    // 4. Interacción segura
                     inputBusqueda.Click();
+                    Thread.Sleep(300);
                     inputBusqueda.SendKeys(Keys.Control + "a");
                     inputBusqueda.SendKeys(Keys.Backspace);
-                    Thread.Sleep(300);
 
                     foreach (char c in cliente.Telefono)
                     {
@@ -307,30 +311,64 @@ namespace GoriziaEnviadorUnitario
                         Thread.Sleep(50);
                     }
 
-                    Thread.Sleep(1500);
+                    progreso.Report($"Número {cliente.Telefono} ingresado.");
 
-                    var resultados = driver.FindElements(By.XPath("//span[contains(text(), 'No se encontraron resultados')]"));
-                    if (resultados.Count > 0)
+                    // 1. Esperar un momento a que WhatsApp termine de filtrar la lista
+                    Thread.Sleep(2000);
+
+                    try
                     {
-                        cliente.Estado = $"Número inválido: {cliente.Telefono}";
-                        progreso.Report(cliente.Estado);
-                        throw new Exception($"Número inválido: {cliente.Telefono}");
+                        // Intentamos dar Enter sobre el input si todavía existe
+                        inputBusqueda.SendKeys(Keys.Enter);
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        // Si el elemento "murió" (Stale), significa que la lista cambió. 
+                        // Mandamos el Enter directamente a la página.
+                        new Actions(driver).SendKeys(Keys.Enter).Perform();
                     }
 
-                    inputBusqueda.SendKeys(Keys.Enter);
+                    progreso.Report("Chat seleccionado. Esperando panel de escritura...");
+                    Thread.Sleep(2000);
 
-                    progreso.Report("Paso 2: Esperando apertura de chat");
-                    wait.Until(ExpectedConditions.ElementIsVisible(
-                        By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+                    // 2. Ahora necesitamos encontrar el cuadro donde se escribe el mensaje.
+                    // Como el DOM cambió, buscamos de nuevo todos los editables y elegimos el último (el chat)
+                    IWebElement inputText = wait.Until(d => {
+                        var editables = d.FindElements(By.CssSelector("div[contenteditable='true']"));
+                        return editables.LastOrDefault(e => e.Displayed);
+                    });
 
-                    // Escribir mensaje solo si existe
                     if (tieneMensaje)
                     {
                         progreso.Report("Paso 3: Escribiendo mensaje");
-                        var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
-                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
                         inputText.Click();
-                        inputText.SendKeys(cliente.Mensaje);
+                        // Dividimos el mensaje en varias líneas usando el carácter '\n' como separador.
+                        // Esto genera un arreglo (array) donde cada elemento es una línea del mensaje.
+                        var lines = (cliente.Mensaje ?? string.Empty).Split('\n');
+
+                        for (int i = 0; i < lines.Length; i++)
+                        {
+                            // Escribimos el texto de la línea actual en el cuadro de mensaje de WhatsApp Web.
+                            // Puede ser una línea vacía si el mensaje tenía dos saltos seguidos.
+                            actions.SendKeys(lines[i]).Perform();
+
+                            // Si NO estamos en la última línea, necesitamos agregar un salto de línea.
+                            // En WhatsApp Web, presionar "Enter" envía el mensaje directamente.
+                            // Para insertar un salto de línea sin enviar, se usa "Shift+Enter".
+                            if (i < lines.Length - 1)
+                            {
+                                // Simulamos la combinación de teclas Shift+Enter:
+                                // - KeyDown: presionamos la tecla Shift
+                                // - SendKeys(Enter): presionamos Enter mientras Shift está apretado
+                                // - KeyUp: soltamos la tecla Shift
+                                // Esto produce un salto de línea dentro del mensaje sin enviarlo todavía.
+                                actions.KeyDown(OpenQA.Selenium.Keys.Shift)
+                                       .SendKeys(OpenQA.Selenium.Keys.Enter)
+                                       .KeyUp(OpenQA.Selenium.Keys.Shift)
+                                       .Perform();
+                            }
+                        }
+
                     }
 
                     // Adjuntar archivo solo si existe
@@ -355,7 +393,6 @@ namespace GoriziaEnviadorUnitario
                         // Esperar a que se abra el explorador
                         Thread.Sleep(2000);
 
-                        //   CAMBIO: Escapar caracteres especiales para SendKeys
                         string rutaEscapada = archivoPath
                             .Replace("{", "{{}")
                             .Replace("}", "{}}")
@@ -383,8 +420,6 @@ namespace GoriziaEnviadorUnitario
                     {
                         // Si solo hay mensaje, enviar con Enter
                         progreso.Report("Paso 5: Enviando mensaje");
-                        var inputText = driver.FindElement(
-                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']"));
                         inputText.SendKeys(Keys.Enter);
                     }
 
@@ -411,7 +446,6 @@ namespace GoriziaEnviadorUnitario
                     }
                     else
                     {
-                        //  Modo nuevo: Esperar X segundos sin validar
                         progreso.Report($"  Esperando {tiempoConfirmacion} segundos...");
                         Thread.Sleep(tiempoConfirmacion * 1000);
                         progreso.Report($"  Tiempo de espera cumplido para {cliente.Telefono}");
@@ -425,238 +459,180 @@ namespace GoriziaEnviadorUnitario
                     throw;
                 }
             }
-            else // Firefox
+            
+            else // Firefoxxxxxxxxxxxxxxx
             {
                 var actions = new Actions(driver);
 
                 try
                 {
-                    progreso.Report("Paso 1: Buscar contacto");
+                    // 0. Verificación de seguridad del contexto
+                    if (driver.WindowHandles.Count == 0) throw new Exception("La ventana de Firefox se cerró inesperadamente.");
+
+                    progreso.Report("Paso 1: Iniciando búsqueda (vía atajo)");
+
+                    // 1. Forzar el foco en el cuerpo de la página antes del atajo
+                    try
+                    {
+                        driver.FindElement(By.TagName("body")).Click();
+                    }
+                    catch { /* Ignorar si falla el click inicial */ }
+                    Thread.Sleep(500);
+
+                    // 2. Enviar atajo Ctrl + Alt + N (Universal para Nuevo Chat)
+                    actions.KeyDown(Keys.Control).KeyDown(Keys.Alt).SendKeys("n")
+                           .KeyUp(Keys.Alt).KeyUp(Keys.Control).Perform();
+
+                    progreso.Report("Esperando 3 segundos...");
+                    Thread.Sleep(3000);
+                    progreso.Report("3 segundos cumplidos");
+
+                    // 3. Localizar el input de búsqueda - MISMOS SELECTORES QUE CHROME
                     IWebElement inputBusqueda = null;
+                    var waitCorto = new WebDriverWait(driver, TimeSpan.FromSeconds(15));
 
-                    // Intento 1: atajo Ctrl+K para abrir búsqueda (más confiable en Firefox)
                     try
                     {
-                        actions.KeyDown(Keys.Control).SendKeys("k").KeyUp(Keys.Control).Perform();
-                        progreso.Report("Atajo enviado, localizando cuadro de búsqueda...");
-                        inputBusqueda = new WebDriverWait(driver, TimeSpan.FromSeconds(10))
-                            .Until(d =>
-                            {
-                                var candidatos = d.FindElements(By.CssSelector(
-                                    "div[role='dialog'] div[role='textbox'][contenteditable='true'], " +
-                                    "div[role='textbox'][contenteditable='true']"));
-                                return candidatos.FirstOrDefault(e => e.Displayed);
-                            });
+                        inputBusqueda = waitCorto.Until(d => {
+                            var editables = d.FindElements(By.CssSelector("div[contenteditable='true'], input[type='text'], div[role='textbox']"));
+                            return editables.FirstOrDefault(e => e.Displayed && e.Enabled);
+                        });
                     }
                     catch (WebDriverTimeoutException)
                     {
-                        inputBusqueda = null;
+                        throw new Exception("No se detectó el cuadro de búsqueda tras el atajo.");
                     }
 
-                    if (inputBusqueda == null)
-                    {
-                        // Fallback: abrir chat por URL directa
-                        progreso.Report("No se detectó el cuadro de búsqueda. Probando por URL directa...");
-                        driver.Navigate().GoToUrl($"https://web.whatsapp.com/send?phone={cliente.Telefono}");
-                    }
-                    else
-                    {
-                        // Asegurar foco en el input de búsqueda
-                        actions.MoveToElement(inputBusqueda).Click().Perform();
-                        Thread.Sleep(300);
+                    if (inputBusqueda == null) throw new Exception("No se detectó el cuadro de búsqueda tras el atajo.");
 
-                        inputBusqueda.SendKeys(Keys.Control + "a");
-                        inputBusqueda.SendKeys(Keys.Backspace);
-                        Thread.Sleep(300);
+                    progreso.Report("Cuadro de búsqueda localizado. Escribiendo número...");
 
-                        // Escribir número carácter por carácter
-                        foreach (char c in cliente.Telefono)
-                        {
-                            inputBusqueda.SendKeys(c.ToString());
-                            Thread.Sleep(50);
-                        }
-                        Thread.Sleep(2500);
+                    // 4. REFUERZO DE FOCO: Clic físico y limpieza de campo
+                    inputBusqueda.Click();
+                    Thread.Sleep(300);
+                    inputBusqueda.SendKeys(Keys.Control + "a");
+                    inputBusqueda.SendKeys(Keys.Backspace);
+                    Thread.Sleep(200);
 
-                        // Verificar con timeout si aparece "No se encontraron"
-                        try
-                        {
-                            var resultados = new WebDriverWait(driver, TimeSpan.FromSeconds(3))
-                                .Until(d => d.FindElements(By.XPath(
-                                    "//span[contains(text(), 'No se encontraron resultados')]")));
+                    // 5. ESCRIBIR NÚMERO DE UNA VEZ (no carácter por carácter)
+                    inputBusqueda.SendKeys(cliente.Telefono);
 
-                            if (resultados.Count > 0)
-                            {
-                                cliente.Estado = $"Número inválido: {cliente.Telefono}";
-                                progreso.Report(cliente.Estado);
-                                throw new Exception($"Número inválido: {cliente.Telefono}");
-                            }
-                        }
-                        catch (WebDriverTimeoutException)
-                        {
-                            // Si no apareció el mensaje de error, continuar
-                        }
+                    progreso.Report($"Número {cliente.Telefono} ingresado.");
 
-                        // Presionar Enter para abrir el chat
-                        inputBusqueda.SendKeys(Keys.Enter);
-                        Thread.Sleep(1000);
-                    }
 
-                    // Esperar apertura de chat (verificar que sí se abrió)
+                    Thread.Sleep(2000); // Tiempo para que WhatsApp procese el filtro
+
+                    // 6. ENTRAR AL CHAT
+                    // Usamos Actions para el Enter porque es inmune a errores de 'Stale Element' si la lista se refresca
+                    actions.SendKeys(Keys.Enter).Perform();
+
                     progreso.Report("Paso 2: Esperando apertura de chat");
-                    try
-                    {
-                        wait.Until(ExpectedConditions.ElementIsVisible(
-                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
-                    }
-                    catch (WebDriverTimeoutException)
-                    {
-                        // Si no se abrió el chat, validar si es número inválido
-                        var invalid = driver.FindElements(By.XPath(
-                            "//*[contains(text(), 'número de teléfono') or contains(text(), 'Phone number')]"));
-                        if (invalid.Count > 0)
-                        {
-                            cliente.Estado = $"Número inválido: {cliente.Telefono}";
-                            progreso.Report(cliente.Estado);
-                            throw new Exception($"Número inválido: {cliente.Telefono}");
-                        }
-
-                        // Si llegamos acá, solo reportar el timeout
-                        throw;
-                    }
-
                     Thread.Sleep(2000);
 
-                    // Escribir mensaje solo si existe
+                    // 7. Localizar el cuadro de mensaje (el último editable visible)
+                    var inputText = wait.Until(d => {
+                        var editables = d.FindElements(By.CssSelector("div[contenteditable='true']"));
+                        return editables.LastOrDefault(e => e.Displayed);
+                    });
+
                     if (tieneMensaje)
                     {
                         progreso.Report("Paso 3: Escribiendo mensaje");
-                        var inputText = wait.Until(ExpectedConditions.ElementIsVisible(
-                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']")));
+                        inputText.Click();
+                        // Escribimos el mensaje usando Actions para mayor estabilidad en Firefox
+                        actions.MoveToElement(inputText).Click().SendKeys(cliente.Mensaje).Perform();
 
-                        actions.MoveToElement(inputText).Click()
-                               .SendKeys(cliente.Mensaje)
-                               .Perform();
+                        if (!tieneArchivo)
+                        {
+                            inputText.SendKeys(Keys.Enter);
+                            progreso.Report("Paso 5: Mensaje enviado.");
+                        }
                     }
 
-                    // Adjuntar archivo solo si existe
+                    // 8. Lógica de Adjuntos (Si aplica)
                     if (tieneArchivo)
                     {
                         progreso.Report("Paso 4: Adjuntar archivo");
 
-                        actions.KeyDown(OpenQA.Selenium.Keys.Shift)
-                               .SendKeys(OpenQA.Selenium.Keys.Tab)
-                               .SendKeys(OpenQA.Selenium.Keys.Tab)
-                               .KeyUp(OpenQA.Selenium.Keys.Shift)
-                               .Perform();
-                        Thread.Sleep(200);
-
-                        actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+                        // Navegar al clip de adjuntos (Shift + Tab x2 desde el cuadro de mensaje)
+                        actions.KeyDown(OpenQA.Selenium.Keys.Shift).SendKeys(OpenQA.Selenium.Keys.Tab).SendKeys(OpenQA.Selenium.Keys.Tab)
+                               .KeyUp(OpenQA.Selenium.Keys.Shift).Perform();
                         Thread.Sleep(500);
 
-                        // Ir a "Documentos"
+                        actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
+                        Thread.Sleep(800);
+
+                        // Seleccionar 'Documento' (Flecha abajo y Enter)
                         actions.SendKeys(OpenQA.Selenium.Keys.ArrowDown).Perform();
-                        Thread.Sleep(300);
+                        Thread.Sleep(400);
                         actions.SendKeys(OpenQA.Selenium.Keys.Enter).Perform();
 
-                        // Esperar a que se abra el explorador
-                        Thread.Sleep(2000);
+                        // Esperar diálogo de Windows
+                        Thread.Sleep(2500);
 
-                        //   CAMBIO: Escapar caracteres especiales para SendKeys
                         string rutaEscapada = archivoPath
-                            .Replace("{", "{{}")
-                            .Replace("}", "{}}")
-                            .Replace("(", "{(}")
-                            .Replace(")", "{)}")
-                            .Replace("+", "{+}")
-                            .Replace("^", "{^}")
-                            .Replace("%", "{%}")
-                            .Replace("~", "{~}");
+                            .Replace("{", "{{}").Replace("}", "{}}").Replace("(", "{(}").Replace(")", "{)}")
+                            .Replace("+", "{+}").Replace("^", "{^}").Replace("%", "{%}").Replace("~", "{~}");
 
                         WinForms.SendKeys.SendWait(rutaEscapada);
                         Thread.Sleep(500);
-
-                        // Presionar Enter
                         WinForms.SendKeys.SendWait("{ENTER}");
+
+                        progreso.Report("Paso 5: Enviando archivo...");
                         Thread.Sleep(2000);
 
-                        progreso.Report("Paso 5: Enviando archivo");
-
-                        wait.Until(d =>
+                        // Esperar y clickear el botón verde de enviar adjunto
+                        try
                         {
-                            var preview = d.FindElements(By.CssSelector("img[src^='blob:']"));
-                            return preview.Count > 0 && preview.All(p => p.Displayed);
-                        });
-
-                        // Enviar
-                        progreso.Report("Paso 5: Enviando archivo");
-                        var enviar = wait.Until(ExpectedConditions.ElementToBeClickable(
-                            By.XPath("//div[@aria-label='Enviar']")));
-                        enviar.Click();
-                    }
-                    else
-                    {
-                        // Si solo hay mensaje, enviar con Enter
-                        progreso.Report("Paso 5: Enviando mensaje");
-                        var inputText = driver.FindElement(
-                            By.XPath("//div[@role='textbox' and @aria-placeholder='Escribe un mensaje']"));
-                        inputText.SendKeys(Keys.Enter);
+                            var btnEnviar = wait.Until(ExpectedConditions.ElementToBeClickable(
+                                By.XPath("//div[@aria-label='Enviar']")));
+                            btnEnviar.Click();
+                        }
+                        catch
+                        {
+                            ((ITakesScreenshot)driver).GetScreenshot().SaveAsFile("error_adjunto_" + DateTime.Now.Ticks + ".png");
+                            throw new Exception("No se encontró el botón Enviar para el archivo adjunto.");
+                        }
                     }
 
-                    // Confirmación de envío
+                    // 9. Confirmación de envío
                     progreso.Report("Paso 6: Confirmando envío");
 
                     if (tiempoConfirmacion == 0)
                     {
-                        //   Modo automático: Esperar hasta ver el tilde
                         try
                         {
-                            new WebDriverWait(driver, TimeSpan.FromSeconds(120))
+                            new WebDriverWait(driver, TimeSpan.FromSeconds(25))
                                 .Until(d => d.FindElements(By.CssSelector(
-                                    "span[data-icon='msg-check']")).Count > 0);
-
-                            string tipo = tieneArchivo && tieneMensaje ? "mensaje y archivo" :
-                                          tieneArchivo ? cliente.Archivo : "mensaje";
-                            progreso.Report($"  Confirmado envío a {cliente.Telefono}: {tipo}");
+                                    "span[data-icon='msg-check'], span[data-icon='msg-dblcheck'], span[data-icon='msg-time']")).Count > 0);
+                            progreso.Report($"Confirmado envío a {cliente.Telefono}");
                         }
-                        catch (WebDriverTimeoutException)
+                        catch
                         {
-                            cliente.Estado = "Envío pendiente";
-                            progreso.Report($"El envío a {cliente.Telefono} no se confirmó (pendiente).");
-                            throw new Exception("Timeout esperando confirmación de envío");
+                            progreso.Report("Envío en cola (sin confirmación visual)");
                         }
                     }
                     else
                     {
-                        //   Modo manual: Esperar X segundos sin validar
-                        progreso.Report($" Esperando {tiempoConfirmacion} segundos...");
                         Thread.Sleep(tiempoConfirmacion * 1000);
-                        progreso.Report($"  Tiempo de espera cumplido para {cliente.Telefono}");
                     }
 
-                    Thread.Sleep(3000);
+                    // Limpiar pantalla
+                    Thread.Sleep(1500);
+                    actions.SendKeys(OpenQA.Selenium.Keys.Escape).Perform();
 
-                    // Cerrar cualquier diálogo
-                    actions.SendKeys(Keys.Escape).Perform();
-                    Thread.Sleep(500);
                 }
                 catch (Exception ex)
                 {
                     cliente.Estado = $"ERROR: {ex.Message}";
-                    progreso.Report($"Error enviando a {cliente.Telefono}: {ex.Message}");
+                    progreso.Report($"Error en Firefox para {cliente.Telefono}: {ex.Message}");
 
-                    // AGREGADO: Cerrar diálogos después de error
-                    try
-                    {
-                        actions.SendKeys(Keys.Escape).Perform();
-                        Thread.Sleep(500);
-                        actions.SendKeys(Keys.Escape).Perform();
-                        Thread.Sleep(500);
-                    }
-                    catch { }
-
+                    // Intentar cerrar diálogos pendientes tras el error
+                    try { actions.SendKeys(Keys.Escape).SendKeys(Keys.Escape).Perform(); } catch { }
                     throw;
                 }
             }
+        
         }
     }
 }

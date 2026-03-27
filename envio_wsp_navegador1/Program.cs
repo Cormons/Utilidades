@@ -42,7 +42,7 @@ namespace GoriziaUtilidades
                 {
                     // ESCENARIO 2 y 3: MODO UNITARIO (Viene Celular y Mensaje)
                     string celular = args[3];
-                    string mensaje = args[4];
+                    string mensaje = args[4].Replace("/n", Environment.NewLine);
                     string archivoAdjunto = null;
 
                     if (esCarpeta)
