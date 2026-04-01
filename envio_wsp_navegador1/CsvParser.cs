@@ -35,7 +35,7 @@ namespace GoriziaEnviadorUnitario
                 {
                     Telefono = cols[0].Trim(),
                     Importe = cols[1].Trim(),
-                    Mensaje = cols[2].Trim(),
+                    Mensaje = cols[2].Trim().Replace("/n", Environment.NewLine),
                     Archivo = cols[3].Trim(),
                     //LinkPago = cols.Length > 5 ? cols[5].Trim() : ""
                 };
