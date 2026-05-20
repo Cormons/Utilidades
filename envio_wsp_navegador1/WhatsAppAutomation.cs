@@ -43,7 +43,7 @@ namespace GoriziaEnviadorUnitario
         {
             using (var driver = InicializarDriver(progreso, navegador))
             {
-                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
 
                 progreso.Report("Esperando carga de interfaz...");
                 wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
@@ -580,19 +580,38 @@ namespace GoriziaEnviadorUnitario
 
                         progreso.Report("Paso 5: Enviando archivo...");
                         Thread.Sleep(2000);
-
-                        // Esperar y clickear el botón verde de enviar adjunto
                         try
                         {
-                            var btnEnviar = wait.Until(ExpectedConditions.ElementToBeClickable(
-                                By.XPath("//div[@aria-label='Enviar']")));
-                            btnEnviar.Click();
+                            var btnEnviar = wait.Until(ExpectedConditions.ElementIsVisible(
+                                By.XPath("//div[@role='button' and @aria-label='Send 1 selected']")));
+
+                            new Actions(driver)
+                                .MoveToElement(btnEnviar)
+                                .Pause(TimeSpan.FromMilliseconds(300))
+                                .Click()
+                                .Perform();
                         }
                         catch
                         {
                             ((ITakesScreenshot)driver).GetScreenshot().SaveAsFile("error_adjunto_" + DateTime.Now.Ticks + ".png");
                             throw new Exception("No se encontró el botón Enviar para el archivo adjunto.");
                         }
+
+                        // Esperar y clickear el botón verde de enviar adjunto
+                        //try
+                        //{
+                        //    var btnEnviar = wait.Until(ExpectedConditions.ElementToBeClickable(
+                        //        By.XPath("//div[@aria-label='Enviar']")));
+                        //    btnEnviar.Click();
+                        //}
+                        //catch
+                        //{
+                        //    ((ITakesScreenshot)driver).GetScreenshot().SaveAsFile("error_adjunto_" + DateTime.Now.Ticks + ".png");
+                        //    throw new Exception("No se encontró el botón Enviar para el archivo adjunto.");
+                        //}
+                        // Intentar con Enter directo (foco debería estar en el botón de enviar del adjunto)
+
+                    }
                     }
 
                     // 9. Confirmación de envío
